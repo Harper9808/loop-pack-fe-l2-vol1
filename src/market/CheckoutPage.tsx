@@ -25,7 +25,8 @@ function DeliverySection({
   onSelectAddress: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const selected = addresses.find((a) => a.id === selectedAddressId)!
+  const selected = addresses.find((a) => a.id === selectedAddressId)
+  if (!selected) return null
   return (
     <div className="section">
       <div className="row between">
@@ -108,6 +109,30 @@ function AddressField({
   )
 }
 
+// 모달은 자기 열림 상태를 직접 소유한다.
+function TermsModal() {
+  const [isOpen, setIsOpen] = useState(false)
+  return (
+    <>
+      <button className="link" onClick={() => setIsOpen(true)}>
+        약관 보기
+      </button>
+      {isOpen ? (
+        <div className="modal" onClick={() => setIsOpen(false)}>
+          <div className="modal-body" onClick={(e) => e.stopPropagation()}>
+            <h3>이용 약관</h3>
+            <p>
+              주문 후 7일 이내 단순 변심 반품이 가능하며, 도서산간은 배송비가
+              추가됩니다.
+            </p>
+            <button onClick={() => setIsOpen(false)}>닫기</button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
 export function CheckoutPage() {
   const member = MEMBER
   const cart = CART
@@ -118,17 +143,16 @@ export function CheckoutPage() {
   const [usePoint, setUsePoint] = useState(false)
   const [pointInput, setPointInput] = useState(0)
   const [payment, setPayment] = useState<PaymentMethod>('card')
-  const [isTermsOpen, setIsTermsOpen] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [placed, setPlaced] = useState(false)
 
-  const address = ADDRESSES.find((a) => a.id === selectedAddressId)!
+  const address = ADDRESSES.find((a) => a.id === selectedAddressId)
 
   // ── 배송비 정책 ──────────────────────────────
   const itemTotal = cart.reduce((sum, it) => sum + it.price * it.quantity, 0)
   let shippingFee = 3000
   if (itemTotal >= 50000) shippingFee = 0
-  if (address.isRemote) shippingFee += 3000
+  if (address?.isRemote === true) shippingFee += 3000
 
   // ── 쿠폰 정책 ────────────────────────────────
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0
@@ -138,10 +162,8 @@ export function CheckoutPage() {
     ? Math.min(pointInput, member.point, itemTotal)
     : 0
 
-  // 최종 금액을 state 에 담아둔다.
-  const [finalPrice] = useState(
-    itemTotal + shippingFee - couponDiscount - pointDiscount,
-  )
+  // 파생값: 렌더마다 재계산
+  const finalPrice = itemTotal + shippingFee - couponDiscount - pointDiscount
 
   const applyCoupon = () => {
     const found = COUPONS.find((c) => c.code === couponCode.trim())
@@ -183,15 +205,15 @@ export function CheckoutPage() {
       <div className="section">
         <h2>주문 상품</h2>
         {cart.map((it) => (
-          <OrderLineRow
-            key={it.id}
-            type="product"
-            label={it.name}
-            amount={it.price * it.quantity}
-            thumbnail={it.thumbnail}
-            option={it.option}
-            quantity={it.quantity}
-          />
+          <OrderLineRow key={it.id} amount={it.price * it.quantity}>
+            <span className="thumb">{it.thumbnail}</span>
+            <div className="grow">
+              <span>{it.name}</span>
+              <small>
+                {it.option} · 수량 {it.quantity}
+              </small>
+            </div>
+          </OrderLineRow>
         ))}
       </div>
 
@@ -244,24 +266,22 @@ export function CheckoutPage() {
 
       <div className="section">
         <h2>결제 금액</h2>
-        <OrderLineRow type="subtotal" label="상품 금액" amount={itemTotal} />
-        <OrderLineRow type="shipping" label="배송비" amount={shippingFee} />
+        <OrderLineRow amount={itemTotal}>
+          <span>상품 금액</span>
+        </OrderLineRow>
+        <OrderLineRow amount={shippingFee}>
+          <span>배송비</span>
+        </OrderLineRow>
         {appliedCoupon ? (
-          <OrderLineRow
-            type="coupon"
-            label="쿠폰 할인"
-            amount={couponDiscount}
-            isDiscount
-            couponCode={appliedCoupon.code}
-          />
+          <OrderLineRow amount={couponDiscount} isDiscount>
+            <span>쿠폰 할인</span>
+            <small>{appliedCoupon.code}</small>
+          </OrderLineRow>
         ) : null}
         {usePoint ? (
-          <OrderLineRow
-            type="point"
-            label="적립금 사용"
-            amount={pointDiscount}
-            isDiscount
-          />
+          <OrderLineRow amount={pointDiscount} isDiscount>
+            <span>적립금 사용</span>
+          </OrderLineRow>
         ) : null}
         <div className="total">
           <span>최종 결제 금액</span>
@@ -278,9 +298,7 @@ export function CheckoutPage() {
           />
           주문 내용 및 약관에 동의합니다
         </label>
-        <button className="link" onClick={() => setIsTermsOpen(true)}>
-          약관 보기
-        </button>
+        <TermsModal />
       </div>
 
       <button
@@ -291,31 +309,12 @@ export function CheckoutPage() {
         {finalPrice.toLocaleString()}원 결제하기
       </button>
 
-      {isTermsOpen ? (
-        <div className="modal" onClick={() => setIsTermsOpen(false)}>
-          <div className="modal-body" onClick={(e) => e.stopPropagation()}>
-            <h3>이용 약관</h3>
-            <p>
-              주문 후 7일 이내 단순 변심 반품이 가능하며, 도서산간은 배송비가
-              추가됩니다.
-            </p>
-            <button onClick={() => setIsTermsOpen(false)}>닫기</button>
-          </div>
-        </div>
-      ) : null}
-
       <div className="section">
         <h2>최근 주문</h2>
         {PAST_ORDERS.map((o) => (
           <div key={o.id} className="line">
             <div className="grow">{o.summary}</div>
-            <OrderStatusTag
-              isPaid={o.status === 'paid'}
-              isPreparing={o.status === 'preparing'}
-              isShipped={o.status === 'shipped'}
-              isDelivered={o.status === 'delivered'}
-              isCancelled={o.status === 'cancelled'}
-            />
+            <OrderStatusTag status={o.status} />
           </div>
         ))}
       </div>
