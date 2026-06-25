@@ -151,23 +151,24 @@ export function CheckoutPage() {
   const [agreed, setAgreed] = useState(false)
   const [placed, setPlaced] = useState(false)
 
-  const address =
-    ADDRESSES.find((a) => a.id === selectedAddressId) ?? ADDRESSES[0]
+  const address = ADDRESSES.find((a) => a.id === selectedAddressId)
 
-  const summary = createCheckoutSummary({
-    cart,
-    address,
-    member,
-    appliedCoupon,
-    usePoint,
-    pointInput,
-  })
-  const productLines = createProductOrderLines(cart)
-  const paymentLines = createPaymentOrderLines({
-    summary,
-    appliedCoupon,
-    usePoint,
-  })
+  // ── 배송비 정책 ──────────────────────────────
+  const itemTotal = cart.reduce((sum, it) => sum + it.price * it.quantity, 0)
+  let shippingFee = 3000
+  if (itemTotal >= 50000) shippingFee = 0
+  if (address?.isRemote === true) shippingFee += 3000
+
+  // ── 쿠폰 정책 ────────────────────────────────
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0
+
+  // ── 적립금 정책 ──────────────────────────────
+  const pointDiscount = usePoint
+    ? Math.min(pointInput, member.point, itemTotal)
+    : 0
+
+  // 파생값: 렌더마다 재계산
+  const finalPrice = itemTotal + shippingFee - couponDiscount - pointDiscount
 
   const applyCoupon = () => {
     const found = COUPONS.find((c) => c.code === couponCode.trim())
@@ -181,8 +182,7 @@ export function CheckoutPage() {
         <h1>주문 완료</h1>
         <div className="section">
           <p style={{ color: 'var(--text-h)' }}>
-            주문이 접수되었어요. 결제 금액{' '}
-            {summary.payableAmount.toLocaleString()}원
+            주문이 접수되었어요. 결제 금액 {finalPrice.toLocaleString()}원
           </p>
         </div>
         <button className="pay" onClick={() => setPlaced(false)}>
@@ -209,8 +209,16 @@ export function CheckoutPage() {
 
       <div className="section">
         <h2>주문 상품</h2>
-        {productLines.map((line) => (
-          <OrderLineRow key={line.id} {...line} />
+        {cart.map((it) => (
+          <OrderLineRow key={it.id} amount={it.price * it.quantity}>
+            <span className="thumb">{it.thumbnail}</span>
+            <div className="grow">
+              <span>{it.name}</span>
+              <small>
+                {it.option} · 수량 {it.quantity}
+              </small>
+            </div>
+          </OrderLineRow>
         ))}
       </div>
 
@@ -263,12 +271,26 @@ export function CheckoutPage() {
 
       <div className="section">
         <h2>결제 금액</h2>
-        {paymentLines.map((line) => (
-          <OrderLineRow key={line.kind} {...line} />
-        ))}
+        <OrderLineRow amount={itemTotal}>
+          <span>상품 금액</span>
+        </OrderLineRow>
+        <OrderLineRow amount={shippingFee}>
+          <span>배송비</span>
+        </OrderLineRow>
+        {appliedCoupon ? (
+          <OrderLineRow amount={couponDiscount} isDiscount>
+            <span>쿠폰 할인</span>
+            <small>{appliedCoupon.code}</small>
+          </OrderLineRow>
+        ) : null}
+        {usePoint ? (
+          <OrderLineRow amount={pointDiscount} isDiscount>
+            <span>적립금 사용</span>
+          </OrderLineRow>
+        ) : null}
         <div className="total">
           <span>최종 결제 금액</span>
-          <Price amount={summary.payableAmount} />
+          <Price amount={finalPrice} member={member} />
         </div>
       </div>
 
@@ -281,7 +303,9 @@ export function CheckoutPage() {
           />
           주문 내용 및 약관에 동의합니다
         </label>
-        <TermsModal />
+        <button className="link" onClick={() => setIsTermsOpen(true)}>
+          약관 보기
+        </button>
       </div>
 
       <button
@@ -289,7 +313,7 @@ export function CheckoutPage() {
         disabled={!agreed}
         onClick={() => setPlaced(true)}
       >
-        {summary.payableAmount.toLocaleString()}원 결제하기
+        {finalPrice.toLocaleString()}원 결제하기
       </button>
 
       <div className="section">
