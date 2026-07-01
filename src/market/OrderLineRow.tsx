@@ -21,6 +21,7 @@ function LineDescription({
     case 'subtotal':
     case 'shipping':
     case 'point':
+    case 'vip':
       return null
     default:
       return assertNever(line)
@@ -28,7 +29,8 @@ function LineDescription({
 }
 
 export function OrderLineRow(props: OrderLine): React.ReactElement {
-  const isDiscount = props.kind === 'coupon' || props.kind === 'point'
+  const isDiscount =
+    props.kind === 'coupon' || props.kind === 'point' || props.kind === 'vip'
   return (
     <div className="line">
       {props.kind === 'product' ? (
