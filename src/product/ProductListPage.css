@@ -58,6 +58,7 @@
   border-radius: 16px;
   cursor: pointer;
   font-size: 13px;
+  color: black;
 }
 
 .category-list button.active {
@@ -88,6 +89,7 @@
   cursor: pointer;
   font-size: 13px;
   margin-left: auto;
+  color: black;
 }
 
 /* Search + Sort */
@@ -111,6 +113,7 @@
   border-radius: 6px;
   font-size: 14px;
   background: #fff;
+  color: black;
 }
 
 /* Product Grid */
@@ -122,11 +125,14 @@
 }
 
 .product-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid #eee;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
   transition: transform 0.15s;
+  cursor: pointer;
 }
 
 .product-card:hover {
@@ -193,6 +199,9 @@
 }
 
 .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 12px;
 }
 
@@ -228,6 +237,7 @@
   align-items: center;
   font-size: 12px;
   color: #666;
+  margin-top: auto;
 }
 
 .rating {
@@ -286,6 +296,7 @@
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  color: black;
 }
 
 .pagination button.active {
