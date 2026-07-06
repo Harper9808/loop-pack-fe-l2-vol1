@@ -29,12 +29,14 @@ export type CouponOrderLine = {
   couponCode: string
 }
 export type PointOrderLine = { kind: 'point'; label: string; amount: number }
+export type VipOrderLine = { kind: 'vip'; label: string; amount: number }
 
 export type PaymentOrderLine =
   | SubtotalOrderLine
   | ShippingOrderLine
   | CouponOrderLine
   | PointOrderLine
+  | VipOrderLine
 
 export type OrderLine = ProductOrderLine | PaymentOrderLine
 
@@ -45,6 +47,7 @@ export type CheckoutSummary = {
   shippingFee: number
   couponDiscount: number
   pointDiscount: number
+  vipDiscount: number
   finalPrice: number
   payableAmount: number
 }
@@ -72,13 +75,14 @@ export function createCheckoutSummary({
     ? Math.min(pointInput, member.point, itemTotal)
     : 0
   const finalPrice = itemTotal + shippingFee - couponDiscount - pointDiscount
-  const payableAmount =
-    member.grade === 'VIP' ? Math.round(finalPrice * 0.9) : finalPrice
+  const vipDiscount = member.grade === 'VIP' ? Math.round(itemTotal * 0.1) : 0
+  const payableAmount = finalPrice - vipDiscount
   return {
     itemTotal,
     shippingFee,
     couponDiscount,
     pointDiscount,
+    vipDiscount,
     finalPrice,
     payableAmount,
   }
@@ -100,10 +104,12 @@ export function createPaymentOrderLines({
   summary,
   appliedCoupon,
   usePoint,
+  member,
 }: {
   summary: CheckoutSummary
   appliedCoupon: Coupon | null
   usePoint: boolean
+  member: Member
 }): PaymentOrderLine[] {
   const lines: PaymentOrderLine[] = [
     { kind: 'subtotal', label: '상품 금액', amount: summary.itemTotal },
@@ -122,6 +128,13 @@ export function createPaymentOrderLines({
       kind: 'point',
       label: '적립금 사용',
       amount: summary.pointDiscount,
+    })
+  }
+  if (member.grade === 'VIP') {
+    lines.push({
+      kind: 'vip',
+      label: 'VIP 할인',
+      amount: summary.vipDiscount,
     })
   }
   return lines

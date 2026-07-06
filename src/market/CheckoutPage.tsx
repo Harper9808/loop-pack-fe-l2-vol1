@@ -167,6 +167,7 @@ export function CheckoutPage() {
     summary,
     appliedCoupon,
     usePoint,
+    member,
   })
 
   const applyCoupon = () => {
