@@ -50,15 +50,19 @@ export function BundleSelect({ options, value, onChange }: BundleSelectProps) {
                   <span className={styles.price}>
                     {formatPrice(option.price)}
                   </span>
-                  {option.unitPrice && (
+                  {option.unitPrice !== undefined && (
                     <span className={styles.unitPrice}>
                       (개당 {formatPrice(option.unitPrice)})
                     </span>
                   )}
-                  {option.note && (
-                    <span className={styles.freeShippingPill}>
-                      {option.note}
-                    </span>
+                  {state.disabled ? (
+                    <span>품절</span>
+                  ) : (
+                    option.note && (
+                      <span className={styles.freeShippingPill}>
+                        {option.note}
+                      </span>
+                    )
                   )}
                 </span>
               </li>

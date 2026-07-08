@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { DialogContext } from './DialogContext'
+import { lockScroll, unlockScroll } from './scrollLock'
 
 interface DialogProps {
   open?: boolean
@@ -30,23 +31,23 @@ export function Dialog({
     [isControlled, onOpenChange],
   )
 
-  // Esc로 닫기 + 열려있는 동안 배경 스크롤 잠금. 포커스 트랩/복원/ARIA는 이번 주 범위 밖.
+  // Esc로 닫기. 포커스 트랩/복원/ARIA는 이번 주 범위 밖.
   useEffect(() => {
     if (!open) return
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
     document.addEventListener('keydown', handleKeyDown)
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-    }
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open, setOpen])
+
+  // 배경 스크롤 잠금 — Esc 처리와 관심사가 달라 별도 effect로 분리.
+  // 여러 Dialog가 동시에 열려도 안전하도록 참조 카운트 기반 싱글톤(scrollLock.ts)을 쓴다.
+  useEffect(() => {
+    if (!open) return
+    lockScroll()
+    return () => unlockScroll()
+  }, [open])
 
   return (
     <DialogContext.Provider value={{ open, setOpen }}>

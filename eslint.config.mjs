@@ -43,6 +43,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // tsconfig.json에서 타입체크 제외한 Vite 잔재와 동일 범위 — 두 게이트가 서로
+    // 다른 파일을 보면 안 되므로 여기서도 똑같이 뺀다.
+    "src/market/**",
+    "src/product/**",
+    "src/App.tsx",
+    "src/main.tsx",
   ]),
 ]);
 

@@ -47,14 +47,22 @@ export function useSelect<T extends SelectOptionLike>({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
+  // options가 줄어들며(예: 재조회) highlightedIndex가 범위를 벗어날 수 있다 —
+  // state를 effect로 다시 동기화하는 대신, 읽는 시점에 매번 파생시킨다("derive during
+  // render") — 안 그러면 Enter를 눌렀을 때 options[highlightedIndex]가 undefined라 터진다.
+  const safeHighlightedIndex =
+    highlightedIndex < options.length ? highlightedIndex : -1
+
   const close = () => setIsOpen(false)
 
   const open = () => {
     const selectedIndex = value
       ? options.findIndex((option) => option.id === value.id)
       : -1
+    const isSelectedEnabled =
+      selectedIndex >= 0 && !options[selectedIndex].soldOut
     setHighlightedIndex(
-      selectedIndex >= 0 ? selectedIndex : findNextEnabledIndex(options, -1, 1),
+      isSelectedEnabled ? selectedIndex : findNextEnabledIndex(options, -1, 1),
     )
     setIsOpen(true)
   }
@@ -93,7 +101,8 @@ export function useSelect<T extends SelectOptionLike>({
       case ' ':
         event.preventDefault()
         if (!isOpen) open()
-        else if (highlightedIndex >= 0) selectOption(options[highlightedIndex])
+        else if (safeHighlightedIndex >= 0)
+          selectOption(options[safeHighlightedIndex])
         break
       case 'Escape':
         if (isOpen) {
@@ -108,13 +117,13 @@ export function useSelect<T extends SelectOptionLike>({
 
   const getOptionState = (option: T, index: number): OptionState => ({
     selected: value?.id === option.id,
-    highlighted: index === highlightedIndex,
+    highlighted: index === safeHighlightedIndex,
     disabled: Boolean(option.soldOut),
   })
 
   return {
     isOpen,
-    highlightedIndex,
+    highlightedIndex: safeHighlightedIndex,
     rootRef,
     open,
     close,

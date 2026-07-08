@@ -1,5 +1,6 @@
 import { products } from './data'
 import { ProductCard } from './_components/ProductCard'
+import { ControlledDialogDemo } from './_components/ControlledDialogDemo'
 import styles from './page.module.css'
 
 export default function ProductsPage() {
@@ -8,6 +9,7 @@ export default function ProductsPage() {
       {products.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}
+      <ControlledDialogDemo />
     </main>
   )
 }

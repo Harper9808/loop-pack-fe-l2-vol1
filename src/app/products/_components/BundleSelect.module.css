@@ -37,6 +37,10 @@
 .option[data-highlighted='true'] {
   background: #f5f8ff;
 }
+.option[data-disabled='true'] {
+  color: #b7bec7;
+  cursor: not-allowed;
+}
 
 .label {
   font-weight: 700;

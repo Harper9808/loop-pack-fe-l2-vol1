@@ -2,6 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 18, 22, 0.45);
+  /* z-index는 DialogOverlay 프리미티브 자체가 기본값을 준다 — 여기서 또 안 정한다. */
 }
 
 .content {
