@@ -6,6 +6,7 @@ import { formatPrice } from '@/common/utils/formatPrice'
 import { SizeSelect } from './SizeSelect'
 import { BundleSelect } from './BundleSelect'
 import { ThumbnailSelect } from './ThumbnailSelect'
+import { ProductDetailDialog } from './ProductDetailDialog'
 import styles from './ProductCard.module.css'
 
 interface ProductCardProps {
@@ -44,6 +45,7 @@ export function ProductCard({ product }: ProductCardProps) {
           onChange={setSelected}
         />
       )}
+      <ProductDetailDialog product={product} selected={selected} />
     </article>
   )
 }
