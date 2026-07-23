@@ -1,29 +1,71 @@
-export default function Home() {
+'use client'
+
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import type { Product } from '@/types/commerce'
+import { homeQueryOptions } from '@/lib/commerce/queries'
+import { ProductCard } from '@/components/commerce/ProductCard'
+
+// 인기/신상품 섹션 — "빈"은 섹션 단위로 처리(배너·카테고리는 항상 유지).
+function ProductSection({
+  title,
+  products,
+}: {
+  title: string
+  products: Product[]
+}) {
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: "64px 24px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
-        Commerce
-      </h1>
-      <p style={{ color: "#5a6675", lineHeight: 1.7, marginBottom: 24 }}>
-        4주차부터 여기에 커머스를 쌓아갑니다. 이번 주는 디자인 시스템의 뼈대
-        <b> Select</b>와 <b>Dialog</b>를 직접 만드는 것부터 시작해요.
-      </p>
-      <ul style={{ lineHeight: 2, color: "#18212e", paddingLeft: 18 }}>
-        <li>
-          컴포넌트 자리: <code>src/components/ui/select</code> ·{" "}
-          <code>src/components/ui/dialog</code>
-        </li>
-        <li>
-          mock 백엔드: <code>GET /api/products</code> (
-          <code>src/app/api/products/route.ts</code>)
-        </li>
-        <li>
-          과제 명세: <code>docs/assignments/week-04.md</code>
-        </li>
-      </ul>
-      <p style={{ color: "#8794a3", marginTop: 24, fontSize: 14 }}>
-        구조는 최소 골격만 있어요. 폴더 구성은 각자 근거를 대고 바꾸면 돼요.
-      </p>
+    <section className="week05-section">
+      <h2>{title}</h2>
+      {products.length === 0 ? (
+        <p className="commerce-empty">상품이 없습니다.</p>
+      ) : (
+        <div className="week05-grid">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default function HomePage() {
+  const { data, isPending, isError, error } = useQuery(homeQueryOptions)
+
+  // 최상위 분기: 로딩 / 에러
+  if (isPending) {
+    return <main className="commerce-status">불러오는 중…</main>
+  }
+  if (isError) {
+    return <main className="commerce-status">{error.message}</main>
+  }
+
+  // 성공: 배너·카테고리는 항상, 상품 섹션만 빈 처리
+  const { banner, categories, popularProducts, newProducts } = data
+  return (
+    <main className="week05-page">
+      <section
+        className="week05-hero"
+        style={{ backgroundImage: `url(${banner.image})` }}
+      >
+        <p>{banner.description}</p>
+        <h1>{banner.title}</h1>
+      </section>
+
+      <section className="week05-section">
+        <h2>카테고리</h2>
+        <div className="week05-categories">
+          {categories.map((category) => (
+            <Link key={category.id} href={`/products?category=${category.id}`}>
+              {category.name}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <ProductSection title="인기 상품" products={popularProducts} />
+      <ProductSection title="신상품" products={newProducts} />
     </main>
-  );
+  )
 }
