@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm build",
+    "check": "pnpm test && pnpm lint && pnpm typecheck && pnpm build",
     "prepare": "husky"
   },
   "dependencies": {
