@@ -6,6 +6,13 @@
   padding: 24px 0 64px;
 }
 
+/* 전 페이지 공용 헤더 컨테이너 (페이지 본문과 같은 폭) */
+.commerce-header {
+  width: min(100% - 32px, 1200px);
+  margin: 0 auto;
+  padding-top: 16px;
+}
+
 .week05-header,
 .week05-header nav,
 .week05-categories,
