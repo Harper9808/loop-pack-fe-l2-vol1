@@ -38,6 +38,13 @@ function ProductsContent(): JSX.Element {
     : null
   const isPageOutOfRange = totalPages !== null && query.page > totalPages
 
+  // keepPreviousData가 range 보정 중(위 replacePage) 옛 page의 응답을 잠깐 그대로 보여준다.
+  // 그 응답은 products가 비었지만 totalCount > 0 — 진짜 빈 검색 결과(둘 다 0)와 다르다.
+  // 이 조합을 "검색 결과 없음"으로 그리면 보정이 끝나기 전 잠깐 빈 화면이 깜빡인다.
+  const isCorrectingPage = data
+    ? data.products.length === 0 && data.totalCount > 0
+    : false
+
   useEffect(() => {
     if (totalPages !== null && isPageOutOfRange) {
       replacePage(totalPages)
@@ -61,7 +68,7 @@ function ProductsContent(): JSX.Element {
       <section className="week05-section" aria-label="상품 검색 결과">
         {/* 범위 밖 page는 곧 마지막 페이지로 고쳐 쓰이므로,
             잘못된 "검색 결과가 없습니다" 대신 로딩을 유지한다. */}
-        {isPending || isPageOutOfRange ? (
+        {isPending || isPageOutOfRange || isCorrectingPage ? (
           <p className="commerce-status">불러오는 중…</p>
         ) : isError ? (
           <p className="commerce-status">

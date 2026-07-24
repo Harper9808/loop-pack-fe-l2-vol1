@@ -144,8 +144,9 @@ getPageNumbers(99, 30, 12) → { totalPages: 3, pageNumbers: [] }
 
 **아직 확인하지 못한 것**
 
-- §5의 오버플로 수정이 브라우저에서 실제로 리다이렉트되는지, 뒤로가기가 없는 페이지로 돌아가지 않는지 (`/products?page=99` 수동 확인 필요)
 - 에러 화면 런타임 동작
+
+§5의 오버플로 수정은 브라우저에서 직접 확인했다(`/products?sort=price-asc&page=99`). 리다이렉트 자체는 되지만 그 과정에서 새 버그를 발견해 별도로 수정했다 — 아래 "페이지 보정 중 빈 placeholder 오인" 참고.
 
 저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 설계 문서 §7의 Advanced-D 후보다.
 
@@ -192,6 +193,7 @@ export function productListQueryOptions(query: ProductListQuery) {
 - `isPlaceholderData === true`인 동안: 상품 그리드에 옅은 투명도 처리 + 작은 로딩 인디케이터를 얹고, `Pagination`의 이전/다음/숫자 버튼을 비활성화한다(같은 요청이 쌓이는 것 방지).
 - 캐시가 전혀 없는 최초 진입(placeholder도 없는 경우)은 지금처럼 `isPending` 풀스크린 로딩을 그대로 유지한다.
 - 범위 밖 page를 마지막 페이지로 되돌리는 기존 로직(`isPageOutOfRange` → `replacePage`)은 그대로 둔다. 필터가 바뀔 때 `query.page`는 항상 1로 리셋되므로, placeholder 데이터(이전 필터의 totalCount)를 기준으로 계산해도 `totalPages < 1`이 될 수 없어 오작동하지 않는다.
+  - ⚠️ 이 판단은 "필터 변경으로 page가 1로 리셋되는 경우"만 검토한 것이었고, `replacePage(totalPages)`로 **자동 보정되는 경우**는 놓쳤다. 실제로 이 경로에서 버그가 발견돼 별도로 수정했다 — 아래 "페이지 보정 중 빈 placeholder 오인" 참고.
 
 ### 3) 오류 재시도 — `HomePage` / `ProductsContent`
 
@@ -214,5 +216,40 @@ export function productListQueryOptions(query: ProductListQuery) {
   - 상품 목록에서 페이지·카테고리·정렬을 바꿔가며 목록이 사라지지 않고 옅게 흐려진 채 유지되는지, 새 데이터 도착 후 정상 복귀하는지 확인.
   - `/api/products?scenario=error`, `/api/home?scenario=error`(mock API 내장 시나리오)로 에러를 강제해 "다시 시도" 버튼과 `재시도 중…` 상태, 재요청 성공 시 정상 복귀를 확인.
   - 개발자도구 네트워크 스로틀링으로 느린 환경에서도 "멈춘 것"이 아니라 "로딩 중"으로 읽히는지 확인.
+
+# 페이지 보정 중 빈 placeholder를 "검색 결과 없음"으로 오인하는 버그 수정
+
+## 발견 경위
+
+§5(범위 밖 page 정규화)를 브라우저에서 직접 확인(`/products?sort=price-asc&page=99`)하던 중, 리다이렉트는 되지만 3페이지로 바뀌기 직전 "검색 결과가 없습니다"가 잠깐 표시됐다가 정상 목록으로 바뀌는 깜빡임을 발견했다.
+
+## 원인
+
+`ProductsContent`가 다음 두 단계를 거친다.
+
+1. `page=99` 요청 → API가 계약대로 `{ products: [], totalCount: 30, page: 99, pageSize: 12 }`를 반환. `totalPages = 3`, `isPageOutOfRange = 99 > 3 = true` → "불러오는 중…" 유지(의도대로 동작).
+2. `useEffect`가 `replacePage(3)` 호출 → `query.page`가 3으로 바뀌며 `['products', { ...page: 3 }]`라는 **새 queryKey**가 생겨 재요청이 시작된다. `placeholderData: keepPreviousData` 때문에 새 데이터가 오기 전까지 **1단계의 응답(빈 products)** 을 그대로 보여준다.
+3. 이 순간 `isPageOutOfRange`를 다시 계산하면 기준 데이터가 여전히 1단계 응답이라 `totalPages`는 3 그대로인데, `query.page`는 이미 3으로 바뀌었으니 `3 > 3 = false`가 되어 "범위 안"으로 오판한다. 로딩 분기를 벗어나 `ProductResults`로 넘어가지만 넘겨받은 `data.products`는 여전히 빈 배열이라 "검색 결과가 없습니다"가 그려진다. 진짜 3페이지 데이터(500ms 고정 지연)가 도착해야 정상 목록으로 바뀐다.
+
+핵심은 `products.length === 0`만으로 "빈 결과"를 판정한 것 — API 계약상 **진짜** 빈 결과는 항상 `totalCount === 0`과 함께 오므로, `products.length === 0`인데 `totalCount > 0`인 조합은 "아직 안 맞는 페이지의 낡은 placeholder"라는 신호로만 나온다.
+
+## 수정
+
+`src/app/products/page.tsx`에 `isCorrectingPage` 파생값을 추가하고 로딩 조건에 포함했다.
+
+```ts
+const isCorrectingPage = data
+  ? data.products.length === 0 && data.totalCount > 0
+  : false
+// ...
+{isPending || isPageOutOfRange || isCorrectingPage ? ( 불러오는 중… ) : ...}
+```
+
+`keepPreviousData`가 의도한 정상 동작(상품이 있는 이전 페이지를 옅게 보여주는 것)은 건드리지 않고, "빈 placeholder를 진짜 빈 결과로 오인"하는 조합만 걸러낸다.
+
+## 검증
+
+- `/products?sort=price-asc&page=99` 재확인 — "검색 결과가 없습니다" 플래시 없이 바로 3페이지로 전환됨을 확인.
+- `pnpm typecheck`, `pnpm lint` 통과.
 
 
