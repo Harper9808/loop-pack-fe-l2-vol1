@@ -1,7 +1,7 @@
 # 5주차 상태관리 — 관심사 분리 리팩토링 노트
 
 > 대상: `src/app/products/page.tsx`(175줄, 컴포넌트 3개) 중심의 5주차 클라이언트 코드
-> 기준 문서: [설계 문서](superpowers/specs/2026-07-24-week05-state-management-design.md) · [CONVENTIONS.md](../CONVENTIONS.md) · [AGENTS.md](../AGENTS.md)
+> 기준 문서: [CONVENTIONS.md](../CONVENTIONS.md) · [AGENTS.md](../AGENTS.md)
 > 이 문서는 계획이 아니라 **실제로 일어난 일**을 최종 상태 기준으로 기록한다.
 
 ## 1. 출발점
