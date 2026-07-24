@@ -2,11 +2,9 @@
 
 import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { ProductListResponse } from '@/types/commerce'
 import { productListQueryOptions } from '@/lib/commerce/queries'
-import { ProductCard } from '@/components/commerce/ProductCard'
-import { Pagination } from './Pagination'
 import { ProductFilters } from './ProductFilters'
+import { ProductResults } from './ProductResults'
 import { useProductListQuery } from './useProductListQuery'
 
 // nuqs(useSearchParams 기반)를 쓰는 부분은 Suspense 경계로 감싼다 (정적 프리렌더 요구사항).
@@ -49,36 +47,5 @@ function ProductsContent() {
         )}
       </section>
     </main>
-  )
-}
-
-function ProductResults({
-  data,
-  onPageChange,
-}: {
-  data: ProductListResponse
-  onPageChange: (page: number) => void
-}) {
-  return (
-    <>
-      <p>총 {data.totalCount}개</p>
-      {data.products.length === 0 ? (
-        <p className="commerce-empty">검색 결과가 없습니다.</p>
-      ) : (
-        <div className="week05-grid">
-          {data.products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      )}
-      {data.products.length > 0 && (
-        <Pagination
-          page={data.page}
-          totalCount={data.totalCount}
-          pageSize={data.pageSize}
-          onPageChange={onPageChange}
-        />
-      )}
-    </>
   )
 }
