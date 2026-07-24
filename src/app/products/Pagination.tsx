@@ -8,6 +8,7 @@ interface PaginationProps {
   totalCount: number
   pageSize: number
   onPageChange: (page: number) => void
+  disabled?: boolean
 }
 
 // 총 페이지 수·노출할 페이지 번호는 응답에서 계산하는 파생값이라 저장하지 않는다.
@@ -17,6 +18,7 @@ export function Pagination({
   totalCount,
   pageSize,
   onPageChange,
+  disabled = false,
 }: PaginationProps): JSX.Element | null {
   const { totalPages, pageNumbers } = getPageNumbers(page, totalCount, pageSize)
 
@@ -29,7 +31,7 @@ export function Pagination({
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
+        disabled={disabled || page <= 1}
       >
         이전
       </button>
@@ -39,7 +41,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(pageNumber)}
           aria-current={pageNumber === page ? 'page' : undefined}
-          disabled={pageNumber === page}
+          disabled={disabled || pageNumber === page}
         >
           {pageNumber}
         </button>
@@ -47,7 +49,7 @@ export function Pagination({
       <button
         type="button"
         onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
+        disabled={disabled || page >= totalPages}
       >
         다음
       </button>

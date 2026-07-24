@@ -7,14 +7,28 @@ import { homeQueryOptions } from '@/lib/commerce/queries'
 import { ProductSection } from './ProductSection'
 
 export default function HomePage(): JSX.Element {
-  const { data, isPending, isError, error } = useQuery(homeQueryOptions)
+  const { data, isPending, isError, error, isFetching, refetch } =
+    useQuery(homeQueryOptions)
 
   // 최상위 분기: 로딩 / 에러
   if (isPending) {
     return <main className="commerce-status">불러오는 중…</main>
   }
   if (isError) {
-    return <main className="commerce-status">{error.message}</main>
+    return (
+      <main className="commerce-status">
+        {error.message}
+        <br />
+        <button
+          type="button"
+          className="commerce-retry-button"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+        >
+          {isFetching ? '재시도 중…' : '다시 시도'}
+        </button>
+      </main>
+    )
   }
 
   // 성공: 배너·카테고리는 항상, 상품 섹션만 빈 처리

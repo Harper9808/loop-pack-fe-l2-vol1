@@ -148,3 +148,71 @@ getPageNumbers(99, 30, 12) → { totalPages: 3, pageNumbers: [] }
 - 에러 화면 런타임 동작
 
 저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 설계 문서 §7의 Advanced-D 후보다.
+
+
+# 상품 목록 캐시 UX 개선 — 이전 목록 유지 + 오류 재시도
+
+## 결론
+
+Advanced C트랙(사용자 경험 개선) 중 두 항목을 구현한다.
+
+1. **페이지·필터·정렬 변경 중 기존 목록 유지** — `productListQueryOptions`에 `placeholderData: keepPreviousData`를 추가하고, `isPlaceholderData`로 "아직 새 데이터가 아니다"를 화면에 표시한다.
+2. **전체 새로고침 없는 오류 재시도** — 홈·상품 목록 두 화면 모두 에러 문구 아래 "다시 시도" 버튼을 추가해 `refetch()`를 호출한다.
+
+나머지 두 항목(다음 페이지 prefetch, 목록 이동 전 prefetch)은 이번에 **의도적으로 제외**한다. 사유는 아래 "검토했지만 기각한 항목" 참고.
+
+## 배경 — 지금 뭐가 문제인가
+
+`app/products/page.tsx`의 `ProductsContent`는 `q·category·sort·page`가 하나로 묶인 `useQueryStates` 값을 그대로 `productListQueryOptions(query)`의 queryKey로 쓴다. 이 값 중 무엇이든 바뀌면 React Query 입장에서는 "처음 보는 key"라 `data`가 잠깐 `undefined`, `isPending`이 `true`가 되고, 화면은 목록 전체를 지우고 "불러오는 중…"으로 바뀐다. 페이지 버튼 하나 눌렀을 뿐인데 화면이 통째로 깜빡이는 게 문제였다.
+
+또한 홈(`useQuery(homeQueryOptions)`)과 목록 둘 다 에러 시 메시지 텍스트만 보여주고, 사용자가 다시 시도할 방법이 없었다(브라우저 새로고침 외에는).
+
+## 설계
+
+### 1) 캐시 정책 — `src/lib/commerce/queries.ts`
+
+```ts
+export function productListQueryOptions(query: ProductListQuery) {
+  return queryOptions({
+    queryKey: ['products', query],
+    queryFn: () => fetchProducts(query),
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData, // 추가
+  })
+}
+```
+
+- q·category·sort·page 중 **어떤 필드가 바뀌었는지 구분하지 않고 전부 동일하게** 적용한다. 넷 다 하나의 queryKey를 이루므로, "페이지만 바뀐 경우"만 골라내려면 이전 query와 새 query를 필드 단위로 diff하는 로직이 추가로 필요한데, 지금 없는 개념을 이 UX 하나를 위해 새로 만드는 건 과한 추상화다.
+- `staleTime: 0`은 그대로 둔다. `keepPreviousData`는 "재요청이 끝나기 전 화면에 뭘 보여줄지"만 결정하고, 재요청을 할지 말지는 `staleTime`이 결정하는 별개의 축이라 서로 충돌하지 않는다. 완전 품절 등으로 목록이 바뀔 수 있어 항상 재검증한다는 기존 정책은 그대로 유지된다.
+
+### 2) 화면 반영 — `ProductsContent` / `ProductResults` / `Pagination`
+
+- `useQuery`에서 `isPlaceholderData`를 함께 받는다.
+- `isPlaceholderData === true`인 동안: 상품 그리드에 옅은 투명도 처리 + 작은 로딩 인디케이터를 얹고, `Pagination`의 이전/다음/숫자 버튼을 비활성화한다(같은 요청이 쌓이는 것 방지).
+- 캐시가 전혀 없는 최초 진입(placeholder도 없는 경우)은 지금처럼 `isPending` 풀스크린 로딩을 그대로 유지한다.
+- 범위 밖 page를 마지막 페이지로 되돌리는 기존 로직(`isPageOutOfRange` → `replacePage`)은 그대로 둔다. 필터가 바뀔 때 `query.page`는 항상 1로 리셋되므로, placeholder 데이터(이전 필터의 totalCount)를 기준으로 계산해도 `totalPages < 1`이 될 수 없어 오작동하지 않는다.
+
+### 3) 오류 재시도 — `HomePage` / `ProductsContent`
+
+- 두 화면의 `isError` 분기에 "다시 시도" 버튼을 추가하고, 클릭 시 `refetch()`를 호출한다.
+- `isFetching` 동안 버튼을 비활성화하고 "재시도 중…" 문구로 바꾼다 — placeholder 로딩과 같은 원칙(진행 중임을 항상 시각적으로 드러낸다)을 여기도 맞춘다.
+- `refetch()`는 실패한 그 쿼리만 다시 요청하는 순수 클라이언트 동작이라 페이지 이동·브라우저 리로드가 없다. "전체 페이지를 새로고침하지 않는" 요구조건을 그대로 만족한다.
+
+## 검토했지만 적용하지 항목 — prefetch 두 가지
+
+"다음 페이지 prefetch"와 "목록 이동 전 prefetch"는 이번에 넣지 않았다.
+
+- `staleTime: 0`은 "매번 최신으로 재검증"이 목적이다. `prefetchQuery`가 요청 자체를 아끼려면(=중복 요청 스킵) 해당 캐시가 `staleTime` 안에서 "신선하다"고 인정돼야 하는데, 그러려면 이 쿼리에만 `staleTime > 0`을 줘야 한다. 이는 "품절 등으로 목록이 바뀔 수 있어 항상 재검증한다"는 기존 정책과 정면으로 어긋난다.
+- `staleTime: 0`을 유지한 채로 prefetch만 걸면, 사용자가 실제로 그 페이지/목록으로 이동했을 때 `refetchOnMount`가 다시 발동해 **요청이 2번(=prefetch 1번 + mount 시 재검증 1번) 나간다.** 즉 화면이 안 깜빡이는 체감 이득은 있어도, "요청을 아낀다"는 prefetch 본래의 이점은 이 정책 하에서 얻을 수 없고 hover만 하고 클릭하지 않는 경우엔 순수 낭비 요청이 된다.
+- 반대로 `keepPreviousData`는 재요청 여부(=`staleTime`)를 전혀 건드리지 않고 "재요청이 끝날 때까지 뭘 보여줄지"만 바꾸는 옵션이라, 지금 정책과 충돌 없이 깜빡임 문제만 해결한다. 그래서 이번 라운드는 이 조합(keepPreviousData + 재시도 버튼)만 넣는다.
+
+## 검증 계획
+
+- 자동화 테스트는 이번 스코프에서 추가하지 않는다. 지금 `vitest.config.ts`는 `environment: "node"`라 훅/렌더링 테스트가 불가능하고, jsdom·테스트 라이브러리 도입은 AGENTS.md 기준 "새 외부 의존성 추가"라 별도 승인이 필요한 사안이라 이번 범위 밖으로 둔다.
+- 수동 검증:
+  - 상품 목록에서 페이지·카테고리·정렬을 바꿔가며 목록이 사라지지 않고 옅게 흐려진 채 유지되는지, 새 데이터 도착 후 정상 복귀하는지 확인.
+  - `/api/products?scenario=error`, `/api/home?scenario=error`(mock API 내장 시나리오)로 에러를 강제해 "다시 시도" 버튼과 `재시도 중…` 상태, 재요청 성공 시 정상 복귀를 확인.
+  - 개발자도구 네트워크 스로틀링으로 느린 환경에서도 "멈춘 것"이 아니라 "로딩 중"으로 읽히는지 확인.
+
+

@@ -20,9 +20,15 @@ export default function ProductsPage(): JSX.Element {
 function ProductsContent(): JSX.Element {
   const { query, setSearch, setCategory, setSort, setPage, replacePage } =
     useProductListQuery()
-  const { data, isPending, isError, error } = useQuery(
-    productListQueryOptions(query),
-  )
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    isPlaceholderData,
+    isFetching,
+    refetch,
+  } = useQuery(productListQueryOptions(query))
 
   // 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
   // 그대로 두면 결과가 30개인데도 "검색 결과가 없습니다"로 보이고 페이지네이션까지
@@ -58,9 +64,24 @@ function ProductsContent(): JSX.Element {
         {isPending || isPageOutOfRange ? (
           <p className="commerce-status">불러오는 중…</p>
         ) : isError ? (
-          <p className="commerce-status">{error.message}</p>
+          <p className="commerce-status">
+            {error.message}
+            <br />
+            <button
+              type="button"
+              className="commerce-retry-button"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              {isFetching ? '재시도 중…' : '다시 시도'}
+            </button>
+          </p>
         ) : (
-          <ProductResults data={data} onPageChange={setPage} />
+          <ProductResults
+            data={data}
+            onPageChange={setPage}
+            isPlaceholderData={isPlaceholderData}
+          />
         )}
       </section>
     </main>
