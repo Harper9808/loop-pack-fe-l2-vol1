@@ -4,8 +4,8 @@ import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ProductListResponse } from '@/types/commerce'
 import { productListQueryOptions } from '@/lib/commerce/queries'
-import { getPageNumbers } from '@/common/utils/getPageNumbers'
 import { ProductCard } from '@/components/commerce/ProductCard'
+import { Pagination } from './Pagination'
 import { ProductFilters } from './ProductFilters'
 import { useProductListQuery } from './useProductListQuery'
 
@@ -59,12 +59,6 @@ function ProductResults({
   data: ProductListResponse
   onPageChange: (page: number) => void
 }) {
-  const { totalPages, pageNumbers } = getPageNumbers(
-    data.page,
-    data.totalCount,
-    data.pageSize,
-  )
-
   return (
     <>
       <p>총 {data.totalCount}개</p>
@@ -77,34 +71,13 @@ function ProductResults({
           ))}
         </div>
       )}
-      {data.products.length > 0 && totalPages > 1 && (
-        <nav className="week05-pagination" aria-label="페이지 이동">
-          <button
-            type="button"
-            onClick={() => onPageChange(data.page - 1)}
-            disabled={data.page <= 1}
-          >
-            이전
-          </button>
-          {pageNumbers.map((pageNumber) => (
-            <button
-              key={pageNumber}
-              type="button"
-              onClick={() => onPageChange(pageNumber)}
-              aria-current={pageNumber === data.page ? 'page' : undefined}
-              disabled={pageNumber === data.page}
-            >
-              {pageNumber}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onPageChange(data.page + 1)}
-            disabled={data.page >= totalPages}
-          >
-            다음
-          </button>
-        </nav>
+      {data.products.length > 0 && (
+        <Pagination
+          page={data.page}
+          totalCount={data.totalCount}
+          pageSize={data.pageSize}
+          onPageChange={onPageChange}
+        />
       )}
     </>
   )
