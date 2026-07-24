@@ -21,7 +21,7 @@ export const useCommerceStore = create<CommerceState>((set) => ({
 
 // selector 훅 — 필요한 조각만 구독한다(자기 상품 boolean만).
 // 여러 카드에서 반복되는 파생이라 훅으로 캡슐화(store 구조가 바뀌어도 여기만 수정).
-export const useIsInCart = (id: string) =>
+export const useIsInCart = (id: string): boolean =>
   useCommerceStore((state) => state.cartIds.includes(id))
-export const useIsWished = (id: string) =>
+export const useIsWished = (id: string): boolean =>
   useCommerceStore((state) => state.wishIds.includes(id))

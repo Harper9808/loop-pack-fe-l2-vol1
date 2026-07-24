@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, type JSX } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { productListQueryOptions } from '@/lib/commerce/queries'
 import { ProductFilters } from './ProductFilters'
@@ -8,7 +8,7 @@ import { ProductResults } from './ProductResults'
 import { useProductListQuery } from './useProductListQuery'
 
 // nuqs(useSearchParams 기반)를 쓰는 부분은 Suspense 경계로 감싼다 (정적 프리렌더 요구사항).
-export default function ProductsPage() {
+export default function ProductsPage(): JSX.Element {
   return (
     <Suspense fallback={<p className="commerce-status">불러오는 중…</p>}>
       <ProductsContent />
@@ -16,7 +16,7 @@ export default function ProductsPage() {
   )
 }
 
-function ProductsContent() {
+function ProductsContent(): JSX.Element {
   const { query, setSearch, setCategory, setSort, setPage } =
     useProductListQuery()
   const { data, isPending, isError, error } = useQuery(

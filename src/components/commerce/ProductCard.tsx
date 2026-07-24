@@ -1,14 +1,19 @@
 'use client'
 
 import Image from 'next/image'
+import type { JSX } from 'react'
 import type { Product } from '@/types/commerce'
 import { formatPrice } from '@/common/utils/formatPrice'
 import { useCommerceStore, useIsInCart, useIsWished } from '@/store/commerce'
 
+interface ProductCardProps {
+  product: Product
+}
+
 // 홈·목록이 함께 쓰는 공용 카드.
 // 담기/찜 버튼은 자기 상품의 포함 여부(boolean)와 필요한 action만 selector로 구독한다(B).
 // 할인 표시는 원본(price·originalPrice)에서 렌더 시 계산하는 파생값 — 저장하지 않는다.
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product }: ProductCardProps): JSX.Element {
   const { id, price, originalPrice } = product
 
   const inCart = useIsInCart(id)

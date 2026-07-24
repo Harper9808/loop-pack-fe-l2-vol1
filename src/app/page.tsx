@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import type { JSX } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { homeQueryOptions } from '@/lib/commerce/queries'
 import { ProductSection } from './ProductSection'
 
-export default function HomePage() {
+export default function HomePage(): JSX.Element {
   const { data, isPending, isError, error } = useQuery(homeQueryOptions)
 
   // 최상위 분기: 로딩 / 에러

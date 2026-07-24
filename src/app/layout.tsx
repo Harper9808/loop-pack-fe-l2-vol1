@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { JSX, ReactNode } from 'react'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import './commerce.css'
@@ -20,11 +21,13 @@ export const metadata: Metadata = {
   description: 'Loopers 커머스 - 4주차부터 여기에 쌓아갑니다.',
 }
 
+interface RootLayoutProps {
+  children: ReactNode
+}
+
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: Readonly<RootLayoutProps>): JSX.Element {
   return (
     <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
