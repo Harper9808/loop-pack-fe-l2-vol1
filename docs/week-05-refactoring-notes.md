@@ -82,36 +82,69 @@ src/
 - 인라인 props 객체 타입을 `interface ComponentNameProps`로 전환(§2).
 - `useProductListQuery`의 반환 타입을 쓰려면 확정된 조건에 이름이 필요해 **`ProductListParams`** 를 추가했다. `types/commerce.ts`의 `ProductListQuery`는 요청 조립용이라 전 필드가 optional이고, 그대로 쓰면 읽는 쪽에서 `string | undefined`가 되어 못 쓴다.
 
-## 5. 발견했지만 고치지 않은 것
+## 5. 리팩토링 중 발견한 동작 버그 — 페이지 오버플로
 
-### 5.1 페이지 오버플로 시 되돌아올 수 없음 (동작 버그)
+구조 리팩토링 커밋에는 **일부러 넣지 않고**, 끝난 뒤 별도 `fix:` 커밋으로 다뤘다.
+`refactor:`가 "겉보기 동작은 그대로"라는 약속을 지켜야 나중에 화면이 이상할 때 그 커밋들을 용의선상에서 뺄 수 있기 때문이다.
 
-- **증상**: `/products?page=99` 로 진입하면 "검색 결과가 없습니다."만 뜨고 페이지네이션도 사라져, URL을 직접 고치지 않으면 1페이지로 돌아올 수 없다.
-- **원인**: API는 범위를 벗어난 페이지에 `products: []` + `totalCount > 0`을 반환하는데(`src/app/api/products/route.ts:98-101`), UI가 페이지네이션을 `products.length > 0` 조건으로 감춘다(현재 `ProductResults.tsx`).
-- **미수정 사유**: 이번 작업은 **동작을 바꾸지 않는 구조 리팩토링**이다. 구조 이동 커밋에 동작 변경을 섞으면 회귀가 생겼을 때 원인을 가릴 수 없다. 별도 `fix:` 커밋으로 다뤄야 한다.
+### 5.1 증상과 원인
 
-### 5.2 `productListQueryOptions`만 반환 타입 없음
+`GET /api/products?page=99` 의 실제 응답(프로브 테스트 실측):
+
+```
+status 200 · products.length 0 · totalCount 30 · page 99 · pageSize 12
+getPageNumbers(99, 30, 12) → { totalPages: 3, pageNumbers: [] }
+```
+
+상품이 30개(3페이지)뿐인데 서버는 에러 대신 200과 빈 목록을 준다(`api/products/route.ts:98-101`). 이걸 받은 화면은
+
+- `products.length === 0` 이라 **"검색 결과가 없습니다."** 를 띄운다. 결과가 30개 있는데 검색 실패처럼 보인다.
+- 페이지네이션이 `products.length > 0` 게이트에 막혀 사라진다 → **화면 안에 돌아갈 길이 없다.**
+  (헤더의 "상품" 링크로는 빠져나올 수 있으므로 완전히 갇히는 것은 아니다.)
+
+### 5.2 게이트만 지우는 것은 수정이 아니다
+
+`Pagination`이 `totalPages <= 1`이면 스스로 `null`을 반환하므로 바깥 게이트를 지우고 싶어지지만, 위 실측처럼 `pageNumbers`가 **빈 배열**이라(`startPage=97`, `endPage=3`) 숫자 버튼 없이 `이전`/`다음`만 남는다. `다음`은 비활성이고 `이전`은 98페이지로 가므로 3페이지까지 96번 눌러야 한다 — 더 나빠진다.
+
+### 5.3 채택한 수정: URL 정규화
+
+`page`가 마지막 페이지를 넘으면 마지막 페이지로 URL을 고쳐 쓴다.
+
+- **`replace`를 쓴 이유**: 사용자가 고른 값이 아니라 잘못된 값을 바로잡는 이동이다. `push`면 뒤로가기가 다시 없는 페이지로 돌아가 되돌아올 수 없다.
+- **setter를 `useCallback`으로 감싼 이유**: 정규화는 effect(외부 시스템인 URL/히스토리와의 동기화)라 setter가 의존성에 들어간다. 참조가 매 렌더 바뀌면 effect가 계속 재실행되므로 안정화가 필요하다. nuqs의 `setQuery`가 이미 메모이즈돼 있어(`nuqs/dist/index.js` `useQueryStates`의 `useCallback`) 실제로 안정적이며, `eslint-disable` 없이 해결된다.
+- **범위 밖일 때 로딩을 유지하는 이유**: 곧 고쳐 쓰일 상태라 잘못된 "검색 결과가 없습니다."가 깜빡이지 않게 한다.
+
+> ⚠️ **브라우저 실동작은 아직 미확인이다.** 타입 검사·ESLint·빌드와 API 실측까지는 확인했으나, 리다이렉트가 실제로 일어나는지와 뒤로가기 동작은 `/products?page=99`에서 수동 확인이 필요하다.
+
+## 6. 그 밖에 고치지 않은 것
+
+### 6.1 `productListQueryOptions`만 반환 타입 없음
 
 `queryOptions()`는 반환 타입 추론을 통해 `useQuery`의 `data` 타입을 좁히도록 설계된 헬퍼라, 반환 타입을 손으로 적으면 그 브랜딩이 깨진다. §1의 예외로 두되 라이브러리 제약임을 여기 남긴다.
 
-### 5.3 `products/page.tsx`에 컴포넌트가 2개 (`ProductsPage` + `ProductsContent`)
+### 6.2 `products/page.tsx`에 컴포넌트가 2개 (`ProductsPage` + `ProductsContent`)
 
 `ProductsPage`는 nuqs의 `useSearchParams` 정적 프리렌더 요구를 맞추기 위한 Suspense 경계일 뿐 독립적인 의미가 없다. 분리하면 내용이 Suspense 래퍼뿐인 파일이 생겨 §2를 지키려다 가독성을 잃는다. 프레임워크 제약에 따른 예외로 남긴다.
 
 > §2의 "default export 금지"도 App Router가 `page.tsx`·`layout.tsx`에 강제하므로 같은 성격의 예외다.
 
-## 6. 남은 정리 후보 (이번 범위 밖)
+## 7. 남은 정리 후보 (이번 범위 밖)
 
 - `pnpm format:check` 가 13개 파일에서 실패한다(제공된 `api/**`·`types/commerce.ts`·설정 파일들). husky가 staged 파일만 검사해 지금까지 드러나지 않았다. `pnpm check`에는 `format:check`가 빠져 있어 CI에서도 안 걸린다.
 - `src/examples/week-05-layout/**` 는 이식이 끝나 아무도 참조하지 않는데 tsconfig에서 제외되지 않아 계속 타입 검사·린트 대상이다. `week-05-layout.css`는 `commerce.css`와 `.week05-*` 셀렉터가 겹친다.
 - `commerce.css` 안에 `week05-*`(예제에서 복사)와 `commerce-*` 네이밍이 섞여 있다.
 
-## 7. 검증
+## 8. 검증
 
-리팩토링 완료 시점 `pnpm check` 전체 통과.
+`pnpm check` 전체 통과.
 
 - 테스트 36개 통과 (3개 파일)
-- ESLint · `tsc --noEmit` 클린
+- ESLint · `tsc --noEmit` 클린 (`eslint-disable` 없음)
 - `next build` 성공, `/` 와 `/products` 모두 정적 프리렌더 유지 — Suspense 경계가 그대로 동작함을 확인
 
-> 다만 현재 저장소에는 store·selector·컴포넌트 렌더에 대한 테스트가 없고(vitest 환경이 `node`, jsdom·testing-library 미설치), 이번 구조 변경의 안전망은 타입 검사와 빌드였다. 상태 테스트는 설계 문서 §7의 Advanced-D 후보로 남아 있다.
+**아직 확인하지 못한 것**
+
+- §5의 오버플로 수정이 브라우저에서 실제로 리다이렉트되는지, 뒤로가기가 없는 페이지로 돌아가지 않는지 (`/products?page=99` 수동 확인 필요)
+- 에러 화면 런타임 동작
+
+저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 설계 문서 §7의 Advanced-D 후보다.

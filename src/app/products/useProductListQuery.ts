@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import {
   parseAsInteger,
   parseAsString,
@@ -31,6 +32,7 @@ export interface UseProductListQueryResult {
   setCategory: (category: CategoryId | 'all') => void
   setSort: (sort: ProductSort) => void
   setPage: (page: number) => void
+  replacePage: (page: number) => void
 }
 
 // 목록 조건의 원본 = URL. nuqs로 타입 있는 URL 상태로 다룬다.
@@ -51,12 +53,40 @@ export function useProductListQuery(): UseProductListQueryResult {
     { history: 'push' },
   )
 
-  return {
-    query,
-    setSearch: (q: string) => setQuery({ q, page: 1 }),
-    setCategory: (category: CategoryId | 'all') =>
-      setQuery({ category, page: 1 }),
-    setSort: (sort: ProductSort) => setQuery({ sort, page: 1 }),
-    setPage: (page: number) => setQuery({ page }),
-  }
+  // setQuery는 nuqs가 메모이즈해 주므로 아래 setter들도 렌더 간 참조가 유지된다.
+  // 이 안정성에 기대어 호출부가 setter를 effect 의존성에 그대로 넣을 수 있다.
+  const setSearch = useCallback(
+    (q: string): void => {
+      void setQuery({ q, page: 1 })
+    },
+    [setQuery],
+  )
+  const setCategory = useCallback(
+    (category: CategoryId | 'all'): void => {
+      void setQuery({ category, page: 1 })
+    },
+    [setQuery],
+  )
+  const setSort = useCallback(
+    (sort: ProductSort): void => {
+      void setQuery({ sort, page: 1 })
+    },
+    [setQuery],
+  )
+  const setPage = useCallback(
+    (page: number): void => {
+      void setQuery({ page })
+    },
+    [setQuery],
+  )
+  // 사용자가 고른 값이 아니라 잘못된 값을 바로잡는 이동이라 replace를 쓴다.
+  // push였다면 뒤로가기가 다시 없는 페이지로 돌아가 되돌아올 수 없다.
+  const replacePage = useCallback(
+    (page: number): void => {
+      void setQuery({ page }, { history: 'replace' })
+    },
+    [setQuery],
+  )
+
+  return { query, setSearch, setCategory, setSort, setPage, replacePage }
 }
