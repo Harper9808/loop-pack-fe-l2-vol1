@@ -19,6 +19,14 @@ const sortOptions: { value: ProductSort; label: string }[] = [
   { value: 'price-desc', label: '높은 가격순' },
 ]
 
+// select의 value는 string이라 그대로는 좁힐 수 없다. 단언(as) 대신 옵션 목록으로
+// 런타임 검증을 거쳐 좁힌다 — 옵션에 없는 값이 들어오면 타입도 맞지 않는다.
+const isCategoryValue = (value: string): value is CategoryId | 'all' =>
+  categoryOptions.some((option) => option.value === value)
+
+const isSortValue = (value: string): value is ProductSort =>
+  sortOptions.some((option) => option.value === value)
+
 interface ProductFiltersProps {
   q: string
   category: CategoryId | 'all'
@@ -29,7 +37,7 @@ interface ProductFiltersProps {
 }
 
 // 확정된 조건(q·category·sort)은 URL이 원본이라 prop으로 받고,
-// 제출 전 검색어 초안만 이 컴포넌트가 직접 소유한다(설계 문서 §2 Ⓔ).
+// 제출 전 검색어 초안만 이 컴포넌트가 직접 소유한다 — 폼 밖에서는 아무도 읽지 않는 값이다.
 export function ProductFilters({
   q,
   category,
@@ -67,9 +75,12 @@ export function ProductFilters({
         카테고리
         <select
           value={category}
-          onChange={(event) =>
-            onCategoryChange(event.target.value as CategoryId | 'all')
-          }
+          onChange={(event) => {
+            const { value } = event.target
+            if (isCategoryValue(value)) {
+              onCategoryChange(value)
+            }
+          }}
         >
           {categoryOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -82,7 +93,12 @@ export function ProductFilters({
         정렬
         <select
           value={sort}
-          onChange={(event) => onSortChange(event.target.value as ProductSort)}
+          onChange={(event) => {
+            const { value } = event.target
+            if (isSortValue(value)) {
+              onSortChange(value)
+            }
+          }}
         >
           {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
