@@ -300,10 +300,11 @@ React Error Boundary(및 Next `error.tsx`)는 **렌더링 중 throw된 오류만
 
 **"위시리스트 기능을 통째로 제거한다면"**
 - 설계 시점 예상 — 삭제: `entities/wishlist/`, `features/toggle-wishlist/` / 수정: `widgets/header/ui/Header.tsx`, `widgets/product-card/ui/ProductCardWithActions.tsx`
-- **실측 확인 항목** (이동 완료 후 채운다):
-  - 삭제 대상이 `entities/wishlist/`·`features/toggle-wishlist/` **2개 폴더에 완전 응집**되는지
-  - 수정 대상이 `widgets/header`(`useWishCount` 제거)·`widgets/product-card`(`ToggleWishlistButton` 제거) **예측과 일치**하는지
-  - 그 외 매치가 전부 **주석**("wishlist에도 같은 3줄" 등)이라 실제 코드 의존이 아닌지
+- **실측 결과** (`grep -rn -iE "wish|찜" src`, 마이그레이션 후):
+  - ✅ 삭제 대상이 `entities/wishlist/`(index·model/store)·`features/toggle-wishlist/`(index·ui) **2개 폴더에 완전 응집** — 부분 수정 없이 폴더째 삭제 가능
+  - ✅ 수정 대상은 예측과 정확히 일치 — `widgets/header/ui/Header.tsx`(`useWishCount` import + `<span>위시리스트 …</span>` 제거), `widgets/product-card/ui/ProductCardWithActions.tsx`(`ToggleWishlistButton` import·조합 제거)
+  - ✅ 그 외 매치(`entities/product/ui/ProductCard.tsx`, Header·ProductCardWithActions의 다른 라인)는 전부 **주석**("담기/찜처럼 …")이라 실제 코드 의존이 아니다 — `entities/product`는 actions 슬롯만 받아 위시리스트를 코드로 모른다
+  - 판정: 삭제 2슬라이스 + 수정 2위젯으로 grep 없이 예측 가능. **응집 성공.**
 - **판정 근거**: cart와 완전 분리했기에 store 파일을 부분 수정할 일이 없다(폴더째 삭제). toggle 헬퍼를 `shared/lib`로 추출했다면 "shared 파일이 아직 cart에 쓰이는지 확인"이라는 조건부 삭제가 끼어들었을 것 — 3줄 중복을 감수한 결정이 이 리트머스에서 값을 한다.
 
 **"신상품 뱃지를 상품 카드에 추가한다면"**
