@@ -1,41 +1,30 @@
-import type { Metadata } from 'next'
-import type { JSX, ReactNode } from 'react'
-import { Geist, Geist_Mono } from 'next/font/google'
-import '@/_app/styles/globals.css'
-import '@/_app/styles/commerce.css'
-import { Providers } from '@/_app/providers'
-import { Header } from '@/widgets/header'
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
 
 const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
 const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'Commerce',
-  description: 'Loopers 커머스 - 4주차부터 여기에 쌓아갑니다.',
-}
-
-interface RootLayoutProps {
-  children: ReactNode
-}
+  title: "Commerce",
+  description: "Loopers 커머스 - 4주차부터 여기에 쌓아갑니다.",
+};
 
 export default function RootLayout({
   children,
-}: Readonly<RootLayoutProps>): JSX.Element {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
-        <Providers>
-          <Header />
-          {children}
-        </Providers>
-      </body>
+      <body>{children}</body>
     </html>
-  )
+  );
 }

@@ -1,0 +1,35 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 22, 0.45);
+  /* z-index는 DialogOverlay 프리미티브 자체가 기본값을 준다 — 여기서 또 안 정한다. */
+}
+
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, calc(100vw - 48px));
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.description {
+  color: #5a6675;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.close {
+  align-self: flex-end;
+  border: none;
+  background: transparent;
+  color: #8a94a3;
+  cursor: pointer;
+  font-size: 14px;
+}

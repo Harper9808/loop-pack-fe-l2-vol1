@@ -30,5 +30,15 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // src/market, src/product, src/App.tsx, src/main.tsx는 3주차까지의 Vite 카타 잔재로
+  // Next 앱(src/app)에서 아무도 참조하지 않는다. 마이그레이션은 이번 라운드 범위 밖이라
+  // 건드리지 않되, 타입체크 대상에선 제외한다 — 안 그러면 머지 과정에서 깨진
+  // src/market/types.ts(빈 파일) 때문에 무관한 `next build`가 통째로 막힌다.
+  "exclude": [
+    "node_modules",
+    "src/market",
+    "src/product",
+    "src/App.tsx",
+    "src/main.tsx"
+  ]
 }
