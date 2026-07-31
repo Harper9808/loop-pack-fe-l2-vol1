@@ -8,6 +8,8 @@ import { ProductFilters } from './ProductFilters'
 import { ProductResults } from './ProductResults'
 import { useProductListQuery } from './useProductListQuery'
 
+const MIN_PAGE = 1
+
 // nuqs(useSearchParams 기반)를 쓰는 부분은 Suspense 경계로 감싼다 (정적 프리렌더 요구사항).
 export default function ProductsPage(): JSX.Element {
   return (
@@ -20,6 +22,12 @@ export default function ProductsPage(): JSX.Element {
 function ProductsContent(): JSX.Element {
   const { query, setSearch, setCategory, setSort, setPage, replacePage } =
     useProductListQuery()
+  // page < 1(0·음수)은 응답을 볼 것도 없이 잘못된 값이고, 서버도 400으로 거절한다.
+  // 그래서 요청에는 보정한 값을 바로 실어 헛된 400을 만들지 않는다. URL은 아래 effect가 고친다.
+  const isPageBelowMin = query.page < MIN_PAGE
+  const listQuery = isPageBelowMin ? { ...query, page: MIN_PAGE } : query
+  const requestedPage = listQuery.page
+
   const {
     data,
     isPending,
@@ -28,28 +36,33 @@ function ProductsContent(): JSX.Element {
     isPlaceholderData,
     isFetching,
     refetch,
-  } = useQuery(productListQueryOptions(query))
+  } = useQuery(productListQueryOptions(listQuery))
 
-  // 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
+  // 반대쪽 끝: 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
   // 그대로 두면 결과가 30개인데도 "검색 결과가 없습니다"로 보이고 페이지네이션까지
   // 사라져 화면 안에 돌아갈 길이 없다. 존재하는 마지막 페이지로 URL을 고쳐 쓴다.
   const totalPages = data
-    ? getPageNumbers(query.page, data.totalCount, data.pageSize).totalPages
+    ? getPageNumbers(requestedPage, data.totalCount, data.pageSize).totalPages
     : null
-  const isPageOutOfRange = totalPages !== null && query.page > totalPages
+  const outOfRangePage =
+    totalPages !== null && requestedPage > totalPages ? totalPages : null
+  const isPageOutOfRange = outOfRangePage !== null
 
-  // keepPreviousData가 range 보정 중(위 replacePage) 옛 page의 응답을 잠깐 그대로 보여준다.
+  // placeholderData(이전 목록 유지)가 range 보정 중(위 replacePage) 옛 page의 응답을 잠깐 그대로 보여준다.
   // 그 응답은 products가 비었지만 totalCount > 0 — 진짜 빈 검색 결과(둘 다 0)와 다르다.
   // 이 조합을 "검색 결과 없음"으로 그리면 보정이 끝나기 전 잠깐 빈 화면이 깜빡인다.
   const isCorrectingPage = data
     ? data.products.length === 0 && data.totalCount > 0
     : false
 
+  // 보정은 양쪽 끝 모두 필요하다 — 1보다 작으면 첫 페이지로, 마지막을 넘으면 마지막 페이지로.
+  const correctedPage = isPageBelowMin ? MIN_PAGE : outOfRangePage
+
   useEffect(() => {
-    if (totalPages !== null && isPageOutOfRange) {
-      replacePage(totalPages)
+    if (correctedPage !== null) {
+      replacePage(correctedPage)
     }
-  }, [isPageOutOfRange, totalPages, replacePage])
+  }, [correctedPage, replacePage])
 
   return (
     <main className="week05-page">

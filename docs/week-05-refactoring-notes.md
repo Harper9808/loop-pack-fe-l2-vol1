@@ -23,7 +23,7 @@
 | L32–38 | Suspense 셸 | **잔류** | App Router가 `page.tsx`에 default export를 요구하는 라우트 진입점 자체. 옮길 곳이 없음 |
 | L41–42 | URL 상태 연결 | **기존 훅 유지** | `useProductListQuery.ts`가 nuqs 세부사항을 이미 감싸고 있어 손댈 이유가 없음 |
 | L43–45 | 서버 상태 연결 `useQuery` | **잔류** | 필터와 결과 양쪽이 의존하는 유일한 교차점. 부모가 들고 있어야 prop으로 내려감. 훅으로 더 감싸면 위임만 하는 빈 레이어가 생김 |
-| L49–59 | 제출 전 검색어 초안 state | `ProductFilters.tsx`로 **이동** | **설계 문서 §2 Ⓔ가 위치를 "검색 폼"으로 지정**했는데 부모가 들고 있었음. AGENTS.md "독립적 UI 상태는 해당 컴포넌트가 직접 소유"와도 충돌 |
+| L49–59 | 제출 전 검색어 초안 state | `ProductFilters.tsx`로 **이동** | 제출 전까지 폼 밖에서 아무도 안 읽는 값인데 부모가 들고 있었음. AGENTS.md "독립적 UI 상태는 해당 컴포넌트가 직접 소유"와 충돌 |
 | L65–103 | 필터 폼 마크업 | `ProductFilters.tsx`로 **분리** | 위 초안 state와 한 몸 |
 | L107–113 | 로딩·에러 3분기 | **잔류** | Query status에서 나오는 파생이라 `useQuery` 바로 옆이라야 읽힘. 빼면 성공 데이터 타입 좁히기가 두 곳으로 갈라짐 |
 | L119–143 | 총 개수·그리드·빈 처리 | `ProductResults.tsx`로 **분리** | 카드 필드가 바뀔 때 손대는 코드. 페이징 규칙과 교체 주기가 다름 |
@@ -42,12 +42,12 @@
 
 | 위치 | 관심사 | 결과 | 근거 |
 | --- | --- | --- | --- |
-| 할인 파생 계산 | 할인율·취소선 판정 | **잔류** | 설계 문서 §2 Ⓓ가 "카드에서 렌더 시 계산"으로 위치를 지정. 소비자도 카드 하나뿐 |
-| store 구독 4줄 | 담기·찜 상태/액션 | **잔류** | 이미 `useIsInCart`/`useIsWished`로 캡슐화됨. 액션까지 훅으로 감싸면 설계 문서 §4의 selector 경계(일회성은 인라인)와 어긋남 |
+| 할인 파생 계산 | 할인율·취소선 판정 | **잔류** | `originalPrice`에서 렌더 시 계산하는 파생값(CONVENTIONS §2). 소비자도 카드 하나뿐 |
+| store 구독 4줄 | 담기·찜 상태/액션 | **잔류** | 이미 `useIsInCart`/`useIsWished`로 캡슐화됨. 액션까지 훅으로 감싸면 selector 경계 원칙(반복되는 판정만 훅, 일회성은 인라인)과 어긋남 |
 
 ## 3. 결과 구조
 
-`/products` 전용 컴포넌트는 라우트 폴더에 콜로케이션하고, `components/commerce/`에는 홈·목록이 **함께 쓰는 것만** 남겼다 (설계 문서 §3 구조 유지).
+`/products` 전용 컴포넌트는 라우트 폴더에 콜로케이션하고, `components/commerce/`에는 홈·목록이 **함께 쓰는 것만** 남겼다.
 
 ```
 src/
@@ -148,7 +148,7 @@ getPageNumbers(99, 30, 12) → { totalPages: 3, pageNumbers: [] }
 
 §5의 오버플로 수정은 브라우저에서 직접 확인했다(`/products?sort=price-asc&page=99`). 리다이렉트 자체는 되지만 그 과정에서 새 버그를 발견해 별도로 수정했다 — 아래 "페이지 보정 중 빈 placeholder 오인" 참고.
 
-저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 설계 문서 §7의 Advanced-D 후보다.
+저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 Advanced 과제 후보로 남겨 둔다.
 
 
 # 상품 목록 캐시 UX 개선 — 이전 목록 유지 + 오류 재시도
@@ -184,6 +184,7 @@ export function productListQueryOptions(query: ProductListQuery) {
 }
 ```
 
+- ⚠️ 아래 두 판단(필드 구분 없음 · `staleTime: 0` 유지)은 코드 리뷰 후 뒤집혔다. 위 스니펫도 현재 코드가 아니다 — §"코드 리뷰 반영" 3·4 참고.
 - q·category·sort·page 중 **어떤 필드가 바뀌었는지 구분하지 않고 전부 동일하게** 적용한다. 넷 다 하나의 queryKey를 이루므로, "페이지만 바뀐 경우"만 골라내려면 이전 query와 새 query를 필드 단위로 diff하는 로직이 추가로 필요한데, 지금 없는 개념을 이 UX 하나를 위해 새로 만드는 건 과한 추상화다.
 - `staleTime: 0`은 그대로 둔다. `keepPreviousData`는 "재요청이 끝나기 전 화면에 뭘 보여줄지"만 결정하고, 재요청을 할지 말지는 `staleTime`이 결정하는 별개의 축이라 서로 충돌하지 않는다. 완전 품절 등으로 목록이 바뀔 수 있어 항상 재검증한다는 기존 정책은 그대로 유지된다.
 
@@ -204,6 +205,8 @@ export function productListQueryOptions(query: ProductListQuery) {
 ## 검토했지만 적용하지 항목 — prefetch 두 가지
 
 "다음 페이지 prefetch"와 "목록 이동 전 prefetch"는 이번에 넣지 않았다.
+
+⚠️ 아래 기각 사유는 `staleTime: 0`을 전제로 한다. 그 전제가 사라져 사유를 다시 썼다 — §"코드 리뷰 반영" 5 참고.
 
 - `staleTime: 0`은 "매번 최신으로 재검증"이 목적이다. `prefetchQuery`가 요청 자체를 아끼려면(=중복 요청 스킵) 해당 캐시가 `staleTime` 안에서 "신선하다"고 인정돼야 하는데, 그러려면 이 쿼리에만 `staleTime > 0`을 줘야 한다. 이는 "품절 등으로 목록이 바뀔 수 있어 항상 재검증한다"는 기존 정책과 정면으로 어긋난다.
 - `staleTime: 0`을 유지한 채로 prefetch만 걸면, 사용자가 실제로 그 페이지/목록으로 이동했을 때 `refetchOnMount`가 다시 발동해 **요청이 2번(=prefetch 1번 + mount 시 재검증 1번) 나간다.** 즉 화면이 안 깜빡이는 체감 이득은 있어도, "요청을 아낀다"는 prefetch 본래의 이점은 이 정책 하에서 얻을 수 없고 hover만 하고 클릭하지 않는 경우엔 순수 낭비 요청이 된다.
@@ -251,5 +254,110 @@ const isCorrectingPage = data
 
 - `/products?sort=price-asc&page=99` 재확인 — "검색 결과가 없습니다" 플래시 없이 바로 3페이지로 전환됨을 확인.
 - `pnpm typecheck`, `pnpm lint` 통과.
+
+# 코드 리뷰 반영
+
+제출본에 받은 리뷰를 반영했다. 앞 절들의 서술은 **그때의 판단 그대로 남겨 둔다** — 여기는 그중 무엇이 왜 뒤집혔는지의 기록이다. 뒤집힌 항목은 앞 절에 ⚠️로 표시했다.
+
+## 1. page 보정이 한쪽 끝만 되어 있었다
+
+`page > totalPages`만 보정하고 `page < 1`은 손대지 않았다. `/products?page=0`으로 들어오면 mock API가 `/^[1-9]\d*$/` 검사에서 400을 반환하고(`api/products/route.ts`), 화면은 오류로 끝난다. 보정 대상이 아니라 오류 화면이 되는 것이라 앞 절의 "돌아갈 길이 없다"는 문제 인식과 같은 종류인데도 놓쳤다.
+
+두 방향의 성격이 다르다는 게 수정의 핵심이었다.
+
+- `page > totalPages`는 **응답을 받아야** `totalCount`로 알 수 있다 → 렌더 후 effect에서 보정.
+- `page < 1`은 **응답이 필요 없다** → 요청을 보내기 전에 클램프해서, 어차피 400이 될 요청을 아예 만들지 않는다.
+
+```tsx
+const isPageBelowMin = query.page < MIN_PAGE
+const listQuery = isPageBelowMin ? { ...query, page: MIN_PAGE } : query // 요청은 보정된 값으로
+// ...
+const correctedPage = isPageBelowMin ? MIN_PAGE : outOfRangePage // URL 보정은 한 effect로 합류
+```
+
+`isPageOutOfRange`(boolean)는 `outOfRangePage`(`number | null`)로 바꿨다. "보정할 페이지 번호"가 있으면 그게 곧 "보정이 필요하다"는 뜻이라, 두 개념을 한 값에서 파생시켰다.
+
+## 2. 상태 코드를 문자열에 섞고 있었다
+
+`fetchJson`이 `new Error(body?.message ?? …)`로만 던져서, 400과 500이 호출부에서 구분되지 않았다. 이번 과제에 에러 핸들링 요구사항이 없어 넘어갔던 부분인데, 상태 코드로 분기하려는 순간 메시지 문자열을 되파싱해야 하는 구조였다.
+
+`ApiError`로 `status`를 별도 필드에 보존하고, `QueryClient`가 그 값을 읽어 재시도를 판단하게 했다.
+
+```ts
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) { … }
+}
+```
+
+4xx는 같은 요청을 다시 보내도 같은 응답이 온다 — 재시도로 얻을 게 없고 오류 화면만 늦어지므로 즉시 실패로 넘긴다. 5xx·네트워크 오류처럼 일시적일 수 있는 것만 3회까지 재시도한다. 앞 절에서 넣은 "다시 시도" 버튼과 층이 다르다: 자동 재시도는 일시적 실패를 사용자 몰래 흡수하고, 버튼은 그마저 실패했을 때 사용자가 직접 여는 문이다.
+
+## 3. 목록 `staleTime` 0 → 30초 (판단 뒤집힘)
+
+§"상품 목록 캐시 UX 개선"에서 "`staleTime: 0`은 그대로 둔다 … 항상 재검증한다는 기존 정책은 그대로 유지된다"고 썼다. 근거는 "완전 품절 시 서버가 목록에서 제외해 멤버십이 변동한다"였다.
+
+뒤집은 이유는 **최신성이 최종적으로 검증되는 지점**을 따져보지 않았다는 것이다. 가격·재고·할인율이 실제로 맞아야 하는 곳은 목록이 아니라 상품 상세와 결제 단계다. 목록에서 30초 된 값을 보여줘도 사용자가 그 값을 근거로 확정하는 일이 없으므로, 그 사이 페이지를 오가며 발생하던 재요청은 순수한 낭비였다. "재요청이 실제로 아까울 때만 staleTime을 올린다"는 기존 가이드에 비춰봐도, 페이지 왕복이 바로 그 낭비 패턴이었는데 이를 낭비로 세지 않았다.
+
+## 4. `placeholderData` — 전부 유지 → page 변경만 유지 (판단 뒤집힘)
+
+같은 절에서 "어떤 필드가 바뀌었는지 구분하지 않고 전부 동일하게 적용한다. … 필드 단위로 diff하는 로직을 이 UX 하나를 위해 새로 만드는 건 과한 추상화다"라고 썼다. 두 가지가 틀렸다.
+
+- **비용 추정이 틀렸다.** 새 개념이 필요한 게 아니라, `placeholderData`가 두 번째 인자로 이미 넘겨주는 `previousQuery.queryKey[1]`을 현재 조건과 비교하는 세 줄이면 됐다. queryKey를 `as const`로 고정하니 타입 단언도 필요 없었다.
+- **UX 판단이 틀렸다.** 필터가 완전히 바뀌었는데 이전 조건의 결과가 흐리게라도 남아 있으면, 사용자는 "이게 지금 조건의 결과인가?"를 판단할 수 없다. 깜빡임을 없애려다 더 나쁜 모호함을 만든 셈이다. page 이동은 조건이 그대로라 이전 목록이 남아 있어도 같은 혼동이 없다.
+
+```ts
+placeholderData: (previousData, previousQuery) => {
+  const previous = previousQuery?.queryKey[1]
+  if (!previous) return undefined
+  const filterChanged =
+    previous.q !== query.q ||
+    previous.category !== query.category ||
+    previous.sort !== query.sort
+  return filterChanged ? undefined : previousData // 필터가 바뀌면 즉시 로딩
+}
+```
+
+§"페이지 보정 중 빈 placeholder 오인" 버그와 `isCorrectingPage`는 **그대로 유효하다.** 그 버그의 재현 경로(`page=99` → `page=3`)는 필터가 아니라 page만 바뀌는 이동이라 `filterChanged === false`, 즉 이전 데이터가 그대로 유지되는 조합이 여전히 성립한다.
+
+## 5. prefetch를 안 넣는 이유가 바뀌었다
+
+앞 절의 prefetch 기각 사유 세 줄은 전부 "`staleTime: 0`이라서 prefetch해도 mount 시 재검증이 또 나간다"에 기대고 있었다. §3에서 `staleTime`을 30초로 올렸으니 **그 전제는 사라졌다.** 이제 prefetch한 응답은 30초 안에는 신선하다고 인정되어, mount 시 중복 요청 없이 그대로 쓰인다. `prefetchQuery` 호출에 `staleTime`을 개별로 얹을 수도 있지만, mount 시 재검증 여부를 결정하는 건 어디까지나 `useQuery` 쪽 설정이다.
+
+그래도 이번 라운드에는 넣지 않는다. 사유를 새로 쓰면 — 목록의 깜빡임은 §4의 `placeholderData`로 이미 해결됐고, hover 예측 요청은 클릭하지 않는 경우 그대로 낭비로 남는다. 즉 지금 prefetch가 추가로 사는 것은 "체감 지연 단축"뿐인데, 그 값을 재보려면 실제 지연 측정이 먼저다. 다음 라운드 후보로 둔다.
+
+## 6. 타입 단언 제거
+
+`ProductFilters`의 `onChange`가 `event.target.value as CategoryId | 'all'`로 단언하고 있었다. select의 `value`는 `string`이라 컴파일러가 못 좁히는 게 맞지만, 단언은 "내가 보증한다"는 선언일 뿐 아무것도 검사하지 않는다. 이미 갖고 있던 옵션 목록으로 런타임 검증을 거치면 단언 없이 좁혀진다.
+
+```tsx
+const isCategoryValue = (value: string): value is CategoryId | 'all' =>
+  categoryOptions.some((option) => option.value === value)
+```
+
+## 7. 저장소에 없는 문서 참조 제거
+
+이 노트와 `ProductFilters.tsx` 주석이 로컬에만 있던 설계 문서(`§2 Ⓔ`, `§3`, `§4`, `§7` 등)를 근거로 인용하고 있었다. 읽는 사람이 확인할 수 없는 참조라, 해당 자리에는 근거를 직접 적었다.
+
+## 검증
+
+- `pnpm typecheck` · `pnpm lint` · `pnpm test`(36개) · `pnpm build` 통과.
+- API 계약 재확인(`curl`): `page=0`·`page=-1` → **400**, `page=99` → 200 + `{products: [], totalCount: 30}`. 두 보정 경로의 전제가 실제 응답으로 확인됐다.
+- 브라우저(headless Chromium)로 요청·URL·DOM을 관찰해 9개 항목 확인:
+
+| 확인 항목 | 관찰 결과 |
+| --- | --- |
+| `?page=0` | API 요청 `page=[1]` **한 번만** — 400 유발 요청 없음. URL은 `/products`로 정규화, 카드 12개 |
+| `?page=-1` | 동일 (`page=[1]`, URL `/products`) |
+| `?sort=price-asc&page=99` | 요청 `page=[99, 3]`, URL `?page=3`, **"검색 결과가 없습니다" 노출 0회**(MutationObserver로 전 프레임 감시), 카드 6개 |
+| 보정 후 뒤로가기 | `/products`로 이동 — `page=99`로 돌아가지 않음(`history: 'replace'` 동작 확인) |
+| page 이동 중 | `.week05-grid--stale` 1개 + 이전 카드 12개 유지, `aria-busy="true"` |
+| 필터 변경 중 | 그리드 0개 · "불러오는 중…" 1개 — 이전 결과가 남지 않음 |
+| 1→2→1 페이지 왕복 | 요청 `page=[2]`뿐, **1페이지 재요청 0회**(staleTime 30초 적중) |
+| 400 응답 | 요청 **1회**로 끝, 화면에 서버 메시지 + "다시 시도" 버튼 |
+| 500 응답 | 요청 **4회**(560ms·1588·3603·7616 — 1s·2s·4s 지수 백오프 후 중단) |
+
+- 마지막 두 줄이 `ApiError.status` 분기의 직접적 증거다. 같은 화면·같은 코드에서 상태 코드만 바꿨을 때 재시도 횟수가 1회와 4회로 갈린다.
 
 
