@@ -1,0 +1,363 @@
+# 5주차 상태관리 — 관심사 분리 리팩토링 노트
+
+> 대상: `src/app/products/page.tsx`(175줄, 컴포넌트 3개) 중심의 5주차 클라이언트 코드
+> 기준 문서: [CONVENTIONS.md](../CONVENTIONS.md) · [AGENTS.md](../AGENTS.md)
+> 이 문서는 계획이 아니라 **실제로 일어난 일**을 최종 상태 기준으로 기록한다.
+
+## 1. 출발점
+
+기능(Basic T1~T6)은 이미 동작하는 상태였고, 문제는 배치였다.
+
+- `products/page.tsx` 한 파일이 175줄 · 컴포넌트 3개 — 파일당 1개 규칙(CONVENTIONS §2) 위반
+- `ProductsContent` 하나가 **URL 상태 · 서버 상태 · 로컬 초안 상태**를 모두 연결하면서 폼 마크업까지 보유
+- 5주차에 새로 쓴 컴포넌트 7개 전부 명시적 반환 타입 없음(§1), props는 인라인 객체 타입(§2)
+  - 대조적으로 3주차 `src/product/**`(현재 미사용)과 4주차 `components/ui/dialog`는 이 규칙을 지키고 있었다 — 5주차 코드만 어긋난 드리프트였다.
+
+## 2. 관심사 표 (최종 상태)
+
+### `src/app/products/page.tsx`
+
+| 원래 위치 | 관심사 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| L15–29 | 카테고리·정렬 선택지 상수 | `ProductFilters.tsx`로 **동반 이동** | 소비자가 필터 폼 하나뿐. 상수 파일로 따로 빼면 파일만 늘고 폼과의 응집도가 떨어짐 |
+| L32–38 | Suspense 셸 | **잔류** | App Router가 `page.tsx`에 default export를 요구하는 라우트 진입점 자체. 옮길 곳이 없음 |
+| L41–42 | URL 상태 연결 | **기존 훅 유지** | `useProductListQuery.ts`가 nuqs 세부사항을 이미 감싸고 있어 손댈 이유가 없음 |
+| L43–45 | 서버 상태 연결 `useQuery` | **잔류** | 필터와 결과 양쪽이 의존하는 유일한 교차점. 부모가 들고 있어야 prop으로 내려감. 훅으로 더 감싸면 위임만 하는 빈 레이어가 생김 |
+| L49–59 | 제출 전 검색어 초안 state | `ProductFilters.tsx`로 **이동** | 제출 전까지 폼 밖에서 아무도 안 읽는 값인데 부모가 들고 있었음. AGENTS.md "독립적 UI 상태는 해당 컴포넌트가 직접 소유"와 충돌 |
+| L65–103 | 필터 폼 마크업 | `ProductFilters.tsx`로 **분리** | 위 초안 state와 한 몸 |
+| L107–113 | 로딩·에러 3분기 | **잔류** | Query status에서 나오는 파생이라 `useQuery` 바로 옆이라야 읽힘. 빼면 성공 데이터 타입 좁히기가 두 곳으로 갈라짐 |
+| L119–143 | 총 개수·그리드·빈 처리 | `ProductResults.tsx`로 **분리** | 카드 필드가 바뀔 때 손대는 코드. 페이징 규칙과 교체 주기가 다름 |
+| L126–130 | `getPageNumbers` 파생 | `Pagination.tsx`로 **동반 이동** | 유일한 소비자가 페이지네이션. 계산과 사용처를 붙여 `totalPages<=1`이면 스스로 렌더 생략 |
+| L144–172 | 페이지네이션 마크업 | `Pagination.tsx`로 **분리** | 홈에는 없고 목록에만 있는 관심사 |
+
+### `src/app/page.tsx` (홈)
+
+| 원래 위치 | 관심사 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| L10–31 | `ProductSection` | `ProductSection.tsx`로 **분리** | 파일당 컴포넌트 1개(§2). 같은 파일에서 2회 쓰이지만 홈 셸과 바뀌는 이유가 다름 |
+| — | `ProductSection` ↔ `ProductResults` 통합 | **통합 안 함** | 겉모습만 닮음. 홈은 섹션 제목·"상품이 없습니다", 목록은 총 개수·페이지네이션·"검색 결과가 없습니다". 합치면 분기 플래그 2~3개짜리 컴포넌트가 됨 |
+| L33–71 | 배너·카테고리 링크 | **잔류** | 각 1회 사용, 상태 없음, 홈 전용. 빼면 파일만 늘고 읽는 흐름이 끊김 |
+
+### `src/components/commerce/ProductCard.tsx`
+
+| 위치 | 관심사 | 결과 | 근거 |
+| --- | --- | --- | --- |
+| 할인 파생 계산 | 할인율·취소선 판정 | **잔류** | `originalPrice`에서 렌더 시 계산하는 파생값(CONVENTIONS §2). 소비자도 카드 하나뿐 |
+| store 구독 4줄 | 담기·찜 상태/액션 | **잔류** | 이미 `useIsInCart`/`useIsWished`로 캡슐화됨. 액션까지 훅으로 감싸면 selector 경계 원칙(반복되는 판정만 훅, 일회성은 인라인)과 어긋남 |
+
+## 3. 결과 구조
+
+`/products` 전용 컴포넌트는 라우트 폴더에 콜로케이션하고, `components/commerce/`에는 홈·목록이 **함께 쓰는 것만** 남겼다.
+
+```
+src/
+  app/
+    layout.tsx                 41   Providers + 공용 Header
+    providers.tsx              21   QueryClient 1회 생성 + NuqsAdapter
+    page.tsx                   47   홈 — 서버 상태 연결 + 배너·카테고리
+    ProductSection.tsx         33   홈 인기/신상품 섹션
+    products/
+      page.tsx                 51   Suspense 셸 + 상태 연결 + 3분기   (175 → 51)
+      ProductFilters.tsx       96   검색·카테고리·정렬 입력
+      ProductResults.tsx       41   총 개수 · 그리드 · 빈 처리
+      Pagination.tsx           56   페이지 이동
+      useProductListQuery.ts   62   URL 상태(nuqs)
+  components/commerce/
+    ProductCard.tsx            75   홈·목록 공용 카드
+    Header.tsx                 25   장바구니·위시 개수(파생)
+  lib/commerce/{api,queries}.ts     서버 상태 레이어 (변경 없음)
+  store/commerce.ts            27   Zustand cartIds·wishIds (변경 없음)
+```
+
+각 컴포넌트의 책임 한 줄:
+
+- **`ProductFilters`** — 확정된 조건은 prop으로 받고, 제출 전 검색어 초안만 자신이 소유해 제출 시점에 URL로 커밋한다.
+- **`ProductResults`** — 성공한 응답만 받아 총 개수·그리드·"빈" 화면을 렌더한다(로딩·에러는 호출부에서 이미 걸러짐).
+- **`Pagination`** — 응답에서 페이지 번호를 파생하고, 페이지가 하나뿐이면 스스로 렌더를 생략한다.
+- **`ProductSection`** — 홈의 상품 섹션을 렌더하며 "빈"을 섹션 단위로 처리한다(배너·카테고리는 유지).
+
+## 4. 타입 표기 정렬
+
+- 5주차 컴포넌트 전체에 명시적 반환 타입 추가(§1). React 19에서 전역 `JSX` 네임스페이스가 제거되어 `import type { JSX } from 'react'`로 가져온다.
+- 인라인 props 객체 타입을 `interface ComponentNameProps`로 전환(§2).
+- `useProductListQuery`의 반환 타입을 쓰려면 확정된 조건에 이름이 필요해 **`ProductListParams`** 를 추가했다. `types/commerce.ts`의 `ProductListQuery`는 요청 조립용이라 전 필드가 optional이고, 그대로 쓰면 읽는 쪽에서 `string | undefined`가 되어 못 쓴다.
+
+## 5. 리팩토링 중 발견한 동작 버그 — 페이지 오버플로
+
+구조 리팩토링 커밋에는 **일부러 넣지 않고**, 끝난 뒤 별도 `fix:` 커밋으로 다뤘다.
+`refactor:`가 "겉보기 동작은 그대로"라는 약속을 지켜야 나중에 화면이 이상할 때 그 커밋들을 용의선상에서 뺄 수 있기 때문이다.
+
+### 5.1 증상과 원인
+
+`GET /api/products?page=99` 의 실제 응답(프로브 테스트 실측):
+
+```
+status 200 · products.length 0 · totalCount 30 · page 99 · pageSize 12
+getPageNumbers(99, 30, 12) → { totalPages: 3, pageNumbers: [] }
+```
+
+상품이 30개(3페이지)뿐인데 서버는 에러 대신 200과 빈 목록을 준다(`api/products/route.ts:98-101`). 이걸 받은 화면은
+
+- `products.length === 0` 이라 **"검색 결과가 없습니다."** 를 띄운다. 결과가 30개 있는데 검색 실패처럼 보인다.
+- 페이지네이션이 `products.length > 0` 게이트에 막혀 사라진다 → **화면 안에 돌아갈 길이 없다.**
+  (헤더의 "상품" 링크로는 빠져나올 수 있으므로 완전히 갇히는 것은 아니다.)
+
+### 5.2 게이트만 지우는 것은 수정이 아니다
+
+`Pagination`이 `totalPages <= 1`이면 스스로 `null`을 반환하므로 바깥 게이트를 지우고 싶어지지만, 위 실측처럼 `pageNumbers`가 **빈 배열**이라(`startPage=97`, `endPage=3`) 숫자 버튼 없이 `이전`/`다음`만 남는다. `다음`은 비활성이고 `이전`은 98페이지로 가므로 3페이지까지 96번 눌러야 한다 — 더 나빠진다.
+
+### 5.3 채택한 수정: URL 정규화
+
+`page`가 마지막 페이지를 넘으면 마지막 페이지로 URL을 고쳐 쓴다.
+
+- **`replace`를 쓴 이유**: 사용자가 고른 값이 아니라 잘못된 값을 바로잡는 이동이다. `push`면 뒤로가기가 다시 없는 페이지로 돌아가 되돌아올 수 없다.
+- **setter를 `useCallback`으로 감싼 이유**: 정규화는 effect(외부 시스템인 URL/히스토리와의 동기화)라 setter가 의존성에 들어간다. 참조가 매 렌더 바뀌면 effect가 계속 재실행되므로 안정화가 필요하다. nuqs의 `setQuery`가 이미 메모이즈돼 있어(`nuqs/dist/index.js` `useQueryStates`의 `useCallback`) 실제로 안정적이며, `eslint-disable` 없이 해결된다.
+- **범위 밖일 때 로딩을 유지하는 이유**: 곧 고쳐 쓰일 상태라 잘못된 "검색 결과가 없습니다."가 깜빡이지 않게 한다.
+
+> ⚠️ **브라우저 실동작은 아직 미확인이다.** 타입 검사·ESLint·빌드와 API 실측까지는 확인했으나, 리다이렉트가 실제로 일어나는지와 뒤로가기 동작은 `/products?page=99`에서 수동 확인이 필요하다.
+
+## 6. 그 밖에 고치지 않은 것
+
+### 6.1 `productListQueryOptions`만 반환 타입 없음
+
+`queryOptions()`는 반환 타입 추론을 통해 `useQuery`의 `data` 타입을 좁히도록 설계된 헬퍼라, 반환 타입을 손으로 적으면 그 브랜딩이 깨진다. §1의 예외로 두되 라이브러리 제약임을 여기 남긴다.
+
+### 6.2 `products/page.tsx`에 컴포넌트가 2개 (`ProductsPage` + `ProductsContent`)
+
+`ProductsPage`는 nuqs의 `useSearchParams` 정적 프리렌더 요구를 맞추기 위한 Suspense 경계일 뿐 독립적인 의미가 없다. 분리하면 내용이 Suspense 래퍼뿐인 파일이 생겨 §2를 지키려다 가독성을 잃는다. 프레임워크 제약에 따른 예외로 남긴다.
+
+> §2의 "default export 금지"도 App Router가 `page.tsx`·`layout.tsx`에 강제하므로 같은 성격의 예외다.
+
+## 7. 남은 정리 후보 (이번 범위 밖)
+
+- `pnpm format:check` 가 13개 파일에서 실패한다(제공된 `api/**`·`types/commerce.ts`·설정 파일들). husky가 staged 파일만 검사해 지금까지 드러나지 않았다. `pnpm check`에는 `format:check`가 빠져 있어 CI에서도 안 걸린다.
+- `src/examples/week-05-layout/**` 는 이식이 끝나 아무도 참조하지 않는데 tsconfig에서 제외되지 않아 계속 타입 검사·린트 대상이다. `week-05-layout.css`는 `commerce.css`와 `.week05-*` 셀렉터가 겹친다.
+- `commerce.css` 안에 `week05-*`(예제에서 복사)와 `commerce-*` 네이밍이 섞여 있다.
+
+## 8. 검증
+
+`pnpm check` 전체 통과.
+
+- 테스트 36개 통과 (3개 파일)
+- ESLint · `tsc --noEmit` 클린 (`eslint-disable` 없음)
+- `next build` 성공, `/` 와 `/products` 모두 정적 프리렌더 유지 — Suspense 경계가 그대로 동작함을 확인
+
+**아직 확인하지 못한 것**
+
+- 에러 화면 런타임 동작
+
+§5의 오버플로 수정은 브라우저에서 직접 확인했다(`/products?sort=price-asc&page=99`). 리다이렉트 자체는 되지만 그 과정에서 새 버그를 발견해 별도로 수정했다 — 아래 "페이지 보정 중 빈 placeholder 오인" 참고.
+
+저장소에 store·selector·컴포넌트 렌더 테스트가 없어(vitest 환경이 `node`, jsdom·testing-library 미설치) 이번 변경의 안전망은 타입 검사와 빌드뿐이었다. 테스트 환경 추가는 새 의존성이 필요해 임의로 넣지 않았다. 상태 테스트는 Advanced 과제 후보로 남겨 둔다.
+
+
+# 상품 목록 캐시 UX 개선 — 이전 목록 유지 + 오류 재시도
+
+## 결론
+
+Advanced C트랙(사용자 경험 개선) 중 두 항목을 구현한다.
+
+1. **페이지·필터·정렬 변경 중 기존 목록 유지** — `productListQueryOptions`에 `placeholderData: keepPreviousData`를 추가하고, `isPlaceholderData`로 "아직 새 데이터가 아니다"를 화면에 표시한다.
+2. **전체 새로고침 없는 오류 재시도** — 홈·상품 목록 두 화면 모두 에러 문구 아래 "다시 시도" 버튼을 추가해 `refetch()`를 호출한다.
+
+나머지 두 항목(다음 페이지 prefetch, 목록 이동 전 prefetch)은 이번에 **의도적으로 제외**한다. 사유는 아래 "검토했지만 기각한 항목" 참고.
+
+## 배경 — 지금 뭐가 문제인가
+
+`app/products/page.tsx`의 `ProductsContent`는 `q·category·sort·page`가 하나로 묶인 `useQueryStates` 값을 그대로 `productListQueryOptions(query)`의 queryKey로 쓴다. 이 값 중 무엇이든 바뀌면 React Query 입장에서는 "처음 보는 key"라 `data`가 잠깐 `undefined`, `isPending`이 `true`가 되고, 화면은 목록 전체를 지우고 "불러오는 중…"으로 바뀐다. 페이지 버튼 하나 눌렀을 뿐인데 화면이 통째로 깜빡이는 게 문제였다.
+
+또한 홈(`useQuery(homeQueryOptions)`)과 목록 둘 다 에러 시 메시지 텍스트만 보여주고, 사용자가 다시 시도할 방법이 없었다(브라우저 새로고침 외에는).
+
+## 설계
+
+### 1) 캐시 정책 — `src/lib/commerce/queries.ts`
+
+```ts
+export function productListQueryOptions(query: ProductListQuery) {
+  return queryOptions({
+    queryKey: ['products', query],
+    queryFn: () => fetchProducts(query),
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData, // 추가
+  })
+}
+```
+
+- ⚠️ 아래 두 판단(필드 구분 없음 · `staleTime: 0` 유지)은 코드 리뷰 후 뒤집혔다. 위 스니펫도 현재 코드가 아니다 — §"코드 리뷰 반영" 3·4 참고.
+- q·category·sort·page 중 **어떤 필드가 바뀌었는지 구분하지 않고 전부 동일하게** 적용한다. 넷 다 하나의 queryKey를 이루므로, "페이지만 바뀐 경우"만 골라내려면 이전 query와 새 query를 필드 단위로 diff하는 로직이 추가로 필요한데, 지금 없는 개념을 이 UX 하나를 위해 새로 만드는 건 과한 추상화다.
+- `staleTime: 0`은 그대로 둔다. `keepPreviousData`는 "재요청이 끝나기 전 화면에 뭘 보여줄지"만 결정하고, 재요청을 할지 말지는 `staleTime`이 결정하는 별개의 축이라 서로 충돌하지 않는다. 완전 품절 등으로 목록이 바뀔 수 있어 항상 재검증한다는 기존 정책은 그대로 유지된다.
+
+### 2) 화면 반영 — `ProductsContent` / `ProductResults` / `Pagination`
+
+- `useQuery`에서 `isPlaceholderData`를 함께 받는다.
+- `isPlaceholderData === true`인 동안: 상품 그리드에 옅은 투명도 처리 + 작은 로딩 인디케이터를 얹고, `Pagination`의 이전/다음/숫자 버튼을 비활성화한다(같은 요청이 쌓이는 것 방지).
+- 캐시가 전혀 없는 최초 진입(placeholder도 없는 경우)은 지금처럼 `isPending` 풀스크린 로딩을 그대로 유지한다.
+- 범위 밖 page를 마지막 페이지로 되돌리는 기존 로직(`isPageOutOfRange` → `replacePage`)은 그대로 둔다. 필터가 바뀔 때 `query.page`는 항상 1로 리셋되므로, placeholder 데이터(이전 필터의 totalCount)를 기준으로 계산해도 `totalPages < 1`이 될 수 없어 오작동하지 않는다.
+  - ⚠️ 이 판단은 "필터 변경으로 page가 1로 리셋되는 경우"만 검토한 것이었고, `replacePage(totalPages)`로 **자동 보정되는 경우**는 놓쳤다. 실제로 이 경로에서 버그가 발견돼 별도로 수정했다 — 아래 "페이지 보정 중 빈 placeholder 오인" 참고.
+
+### 3) 오류 재시도 — `HomePage` / `ProductsContent`
+
+- 두 화면의 `isError` 분기에 "다시 시도" 버튼을 추가하고, 클릭 시 `refetch()`를 호출한다.
+- `isFetching` 동안 버튼을 비활성화하고 "재시도 중…" 문구로 바꾼다 — placeholder 로딩과 같은 원칙(진행 중임을 항상 시각적으로 드러낸다)을 여기도 맞춘다.
+- `refetch()`는 실패한 그 쿼리만 다시 요청하는 순수 클라이언트 동작이라 페이지 이동·브라우저 리로드가 없다. "전체 페이지를 새로고침하지 않는" 요구조건을 그대로 만족한다.
+
+## 검토했지만 적용하지 항목 — prefetch 두 가지
+
+"다음 페이지 prefetch"와 "목록 이동 전 prefetch"는 이번에 넣지 않았다.
+
+⚠️ 아래 기각 사유는 `staleTime: 0`을 전제로 한다. 그 전제가 사라져 사유를 다시 썼다 — §"코드 리뷰 반영" 5 참고.
+
+- `staleTime: 0`은 "매번 최신으로 재검증"이 목적이다. `prefetchQuery`가 요청 자체를 아끼려면(=중복 요청 스킵) 해당 캐시가 `staleTime` 안에서 "신선하다"고 인정돼야 하는데, 그러려면 이 쿼리에만 `staleTime > 0`을 줘야 한다. 이는 "품절 등으로 목록이 바뀔 수 있어 항상 재검증한다"는 기존 정책과 정면으로 어긋난다.
+- `staleTime: 0`을 유지한 채로 prefetch만 걸면, 사용자가 실제로 그 페이지/목록으로 이동했을 때 `refetchOnMount`가 다시 발동해 **요청이 2번(=prefetch 1번 + mount 시 재검증 1번) 나간다.** 즉 화면이 안 깜빡이는 체감 이득은 있어도, "요청을 아낀다"는 prefetch 본래의 이점은 이 정책 하에서 얻을 수 없고 hover만 하고 클릭하지 않는 경우엔 순수 낭비 요청이 된다.
+- 반대로 `keepPreviousData`는 재요청 여부(=`staleTime`)를 전혀 건드리지 않고 "재요청이 끝날 때까지 뭘 보여줄지"만 바꾸는 옵션이라, 지금 정책과 충돌 없이 깜빡임 문제만 해결한다. 그래서 이번 라운드는 이 조합(keepPreviousData + 재시도 버튼)만 넣는다.
+
+## 검증 계획
+
+- 자동화 테스트는 이번 스코프에서 추가하지 않는다. 지금 `vitest.config.ts`는 `environment: "node"`라 훅/렌더링 테스트가 불가능하고, jsdom·테스트 라이브러리 도입은 AGENTS.md 기준 "새 외부 의존성 추가"라 별도 승인이 필요한 사안이라 이번 범위 밖으로 둔다.
+- 수동 검증:
+  - 상품 목록에서 페이지·카테고리·정렬을 바꿔가며 목록이 사라지지 않고 옅게 흐려진 채 유지되는지, 새 데이터 도착 후 정상 복귀하는지 확인.
+  - `/api/products?scenario=error`, `/api/home?scenario=error`(mock API 내장 시나리오)로 에러를 강제해 "다시 시도" 버튼과 `재시도 중…` 상태, 재요청 성공 시 정상 복귀를 확인.
+  - 개발자도구 네트워크 스로틀링으로 느린 환경에서도 "멈춘 것"이 아니라 "로딩 중"으로 읽히는지 확인.
+
+# 페이지 보정 중 빈 placeholder를 "검색 결과 없음"으로 오인하는 버그 수정
+
+## 발견 경위
+
+§5(범위 밖 page 정규화)를 브라우저에서 직접 확인(`/products?sort=price-asc&page=99`)하던 중, 리다이렉트는 되지만 3페이지로 바뀌기 직전 "검색 결과가 없습니다"가 잠깐 표시됐다가 정상 목록으로 바뀌는 깜빡임을 발견했다.
+
+## 원인
+
+`ProductsContent`가 다음 두 단계를 거친다.
+
+1. `page=99` 요청 → API가 계약대로 `{ products: [], totalCount: 30, page: 99, pageSize: 12 }`를 반환. `totalPages = 3`, `isPageOutOfRange = 99 > 3 = true` → "불러오는 중…" 유지(의도대로 동작).
+2. `useEffect`가 `replacePage(3)` 호출 → `query.page`가 3으로 바뀌며 `['products', { ...page: 3 }]`라는 **새 queryKey**가 생겨 재요청이 시작된다. `placeholderData: keepPreviousData` 때문에 새 데이터가 오기 전까지 **1단계의 응답(빈 products)** 을 그대로 보여준다.
+3. 이 순간 `isPageOutOfRange`를 다시 계산하면 기준 데이터가 여전히 1단계 응답이라 `totalPages`는 3 그대로인데, `query.page`는 이미 3으로 바뀌었으니 `3 > 3 = false`가 되어 "범위 안"으로 오판한다. 로딩 분기를 벗어나 `ProductResults`로 넘어가지만 넘겨받은 `data.products`는 여전히 빈 배열이라 "검색 결과가 없습니다"가 그려진다. 진짜 3페이지 데이터(500ms 고정 지연)가 도착해야 정상 목록으로 바뀐다.
+
+핵심은 `products.length === 0`만으로 "빈 결과"를 판정한 것 — API 계약상 **진짜** 빈 결과는 항상 `totalCount === 0`과 함께 오므로, `products.length === 0`인데 `totalCount > 0`인 조합은 "아직 안 맞는 페이지의 낡은 placeholder"라는 신호로만 나온다.
+
+## 수정
+
+`src/app/products/page.tsx`에 `isCorrectingPage` 파생값을 추가하고 로딩 조건에 포함했다.
+
+```ts
+const isCorrectingPage = data
+  ? data.products.length === 0 && data.totalCount > 0
+  : false
+// ...
+{isPending || isPageOutOfRange || isCorrectingPage ? ( 불러오는 중… ) : ...}
+```
+
+`keepPreviousData`가 의도한 정상 동작(상품이 있는 이전 페이지를 옅게 보여주는 것)은 건드리지 않고, "빈 placeholder를 진짜 빈 결과로 오인"하는 조합만 걸러낸다.
+
+## 검증
+
+- `/products?sort=price-asc&page=99` 재확인 — "검색 결과가 없습니다" 플래시 없이 바로 3페이지로 전환됨을 확인.
+- `pnpm typecheck`, `pnpm lint` 통과.
+
+# 코드 리뷰 반영
+
+제출본에 받은 리뷰를 반영했다. 앞 절들의 서술은 **그때의 판단 그대로 남겨 둔다** — 여기는 그중 무엇이 왜 뒤집혔는지의 기록이다. 뒤집힌 항목은 앞 절에 ⚠️로 표시했다.
+
+## 1. page 보정이 한쪽 끝만 되어 있었다
+
+`page > totalPages`만 보정하고 `page < 1`은 손대지 않았다. `/products?page=0`으로 들어오면 mock API가 `/^[1-9]\d*$/` 검사에서 400을 반환하고(`api/products/route.ts`), 화면은 오류로 끝난다. 보정 대상이 아니라 오류 화면이 되는 것이라 앞 절의 "돌아갈 길이 없다"는 문제 인식과 같은 종류인데도 놓쳤다.
+
+두 방향의 성격이 다르다는 게 수정의 핵심이었다.
+
+- `page > totalPages`는 **응답을 받아야** `totalCount`로 알 수 있다 → 렌더 후 effect에서 보정.
+- `page < 1`은 **응답이 필요 없다** → 요청을 보내기 전에 클램프해서, 어차피 400이 될 요청을 아예 만들지 않는다.
+
+```tsx
+const isPageBelowMin = query.page < MIN_PAGE
+const listQuery = isPageBelowMin ? { ...query, page: MIN_PAGE } : query // 요청은 보정된 값으로
+// ...
+const correctedPage = isPageBelowMin ? MIN_PAGE : outOfRangePage // URL 보정은 한 effect로 합류
+```
+
+`isPageOutOfRange`(boolean)는 `outOfRangePage`(`number | null`)로 바꿨다. "보정할 페이지 번호"가 있으면 그게 곧 "보정이 필요하다"는 뜻이라, 두 개념을 한 값에서 파생시켰다.
+
+## 2. 상태 코드를 문자열에 섞고 있었다
+
+`fetchJson`이 `new Error(body?.message ?? …)`로만 던져서, 400과 500이 호출부에서 구분되지 않았다. 이번 과제에 에러 핸들링 요구사항이 없어 넘어갔던 부분인데, 상태 코드로 분기하려는 순간 메시지 문자열을 되파싱해야 하는 구조였다.
+
+`ApiError`로 `status`를 별도 필드에 보존하고, `QueryClient`가 그 값을 읽어 재시도를 판단하게 했다.
+
+```ts
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) { … }
+}
+```
+
+4xx는 같은 요청을 다시 보내도 같은 응답이 온다 — 재시도로 얻을 게 없고 오류 화면만 늦어지므로 즉시 실패로 넘긴다. 5xx·네트워크 오류처럼 일시적일 수 있는 것만 3회까지 재시도한다. 앞 절에서 넣은 "다시 시도" 버튼과 층이 다르다: 자동 재시도는 일시적 실패를 사용자 몰래 흡수하고, 버튼은 그마저 실패했을 때 사용자가 직접 여는 문이다.
+
+## 3. 목록 `staleTime` 0 → 30초 (판단 뒤집힘)
+
+§"상품 목록 캐시 UX 개선"에서 "`staleTime: 0`은 그대로 둔다 … 항상 재검증한다는 기존 정책은 그대로 유지된다"고 썼다. 근거는 "완전 품절 시 서버가 목록에서 제외해 멤버십이 변동한다"였다.
+
+뒤집은 이유는 **최신성이 최종적으로 검증되는 지점**을 따져보지 않았다는 것이다. 가격·재고·할인율이 실제로 맞아야 하는 곳은 목록이 아니라 상품 상세와 결제 단계다. 목록에서 30초 된 값을 보여줘도 사용자가 그 값을 근거로 확정하는 일이 없으므로, 그 사이 페이지를 오가며 발생하던 재요청은 순수한 낭비였다. "재요청이 실제로 아까울 때만 staleTime을 올린다"는 기존 가이드에 비춰봐도, 페이지 왕복이 바로 그 낭비 패턴이었는데 이를 낭비로 세지 않았다.
+
+## 4. `placeholderData` — 전부 유지 → page 변경만 유지 (판단 뒤집힘)
+
+같은 절에서 "어떤 필드가 바뀌었는지 구분하지 않고 전부 동일하게 적용한다. … 필드 단위로 diff하는 로직을 이 UX 하나를 위해 새로 만드는 건 과한 추상화다"라고 썼다. 두 가지가 틀렸다.
+
+- **비용 추정이 틀렸다.** 새 개념이 필요한 게 아니라, `placeholderData`가 두 번째 인자로 이미 넘겨주는 `previousQuery.queryKey[1]`을 현재 조건과 비교하는 세 줄이면 됐다. queryKey를 `as const`로 고정하니 타입 단언도 필요 없었다.
+- **UX 판단이 틀렸다.** 필터가 완전히 바뀌었는데 이전 조건의 결과가 흐리게라도 남아 있으면, 사용자는 "이게 지금 조건의 결과인가?"를 판단할 수 없다. 깜빡임을 없애려다 더 나쁜 모호함을 만든 셈이다. page 이동은 조건이 그대로라 이전 목록이 남아 있어도 같은 혼동이 없다.
+
+```ts
+placeholderData: (previousData, previousQuery) => {
+  const previous = previousQuery?.queryKey[1]
+  if (!previous) return undefined
+  const filterChanged =
+    previous.q !== query.q ||
+    previous.category !== query.category ||
+    previous.sort !== query.sort
+  return filterChanged ? undefined : previousData // 필터가 바뀌면 즉시 로딩
+}
+```
+
+§"페이지 보정 중 빈 placeholder 오인" 버그와 `isCorrectingPage`는 **그대로 유효하다.** 그 버그의 재현 경로(`page=99` → `page=3`)는 필터가 아니라 page만 바뀌는 이동이라 `filterChanged === false`, 즉 이전 데이터가 그대로 유지되는 조합이 여전히 성립한다.
+
+## 5. prefetch를 안 넣는 이유가 바뀌었다
+
+앞 절의 prefetch 기각 사유 세 줄은 전부 "`staleTime: 0`이라서 prefetch해도 mount 시 재검증이 또 나간다"에 기대고 있었다. §3에서 `staleTime`을 30초로 올렸으니 **그 전제는 사라졌다.** 이제 prefetch한 응답은 30초 안에는 신선하다고 인정되어, mount 시 중복 요청 없이 그대로 쓰인다. `prefetchQuery` 호출에 `staleTime`을 개별로 얹을 수도 있지만, mount 시 재검증 여부를 결정하는 건 어디까지나 `useQuery` 쪽 설정이다.
+
+그래도 이번 라운드에는 넣지 않는다. 사유를 새로 쓰면 — 목록의 깜빡임은 §4의 `placeholderData`로 이미 해결됐고, hover 예측 요청은 클릭하지 않는 경우 그대로 낭비로 남는다. 즉 지금 prefetch가 추가로 사는 것은 "체감 지연 단축"뿐인데, 그 값을 재보려면 실제 지연 측정이 먼저다. 다음 라운드 후보로 둔다.
+
+## 6. 타입 단언 제거
+
+`ProductFilters`의 `onChange`가 `event.target.value as CategoryId | 'all'`로 단언하고 있었다. select의 `value`는 `string`이라 컴파일러가 못 좁히는 게 맞지만, 단언은 "내가 보증한다"는 선언일 뿐 아무것도 검사하지 않는다. 이미 갖고 있던 옵션 목록으로 런타임 검증을 거치면 단언 없이 좁혀진다.
+
+```tsx
+const isCategoryValue = (value: string): value is CategoryId | 'all' =>
+  categoryOptions.some((option) => option.value === value)
+```
+
+## 7. 저장소에 없는 문서 참조 제거
+
+이 노트와 `ProductFilters.tsx` 주석이 로컬에만 있던 설계 문서(`§2 Ⓔ`, `§3`, `§4`, `§7` 등)를 근거로 인용하고 있었다. 읽는 사람이 확인할 수 없는 참조라, 해당 자리에는 근거를 직접 적었다.
+
+## 검증
+
+- `pnpm typecheck` · `pnpm lint` · `pnpm test`(36개) · `pnpm build` 통과.
+- API 계약 재확인(`curl`): `page=0`·`page=-1` → **400**, `page=99` → 200 + `{products: [], totalCount: 30}`. 두 보정 경로의 전제가 실제 응답으로 확인됐다.
+- 브라우저(headless Chromium)로 요청·URL·DOM을 관찰해 9개 항목 확인:
+
+| 확인 항목 | 관찰 결과 |
+| --- | --- |
+| `?page=0` | API 요청 `page=[1]` **한 번만** — 400 유발 요청 없음. URL은 `/products`로 정규화, 카드 12개 |
+| `?page=-1` | 동일 (`page=[1]`, URL `/products`) |
+| `?sort=price-asc&page=99` | 요청 `page=[99, 3]`, URL `?page=3`, **"검색 결과가 없습니다" 노출 0회**(MutationObserver로 전 프레임 감시), 카드 6개 |
+| 보정 후 뒤로가기 | `/products`로 이동 — `page=99`로 돌아가지 않음(`history: 'replace'` 동작 확인) |
+| page 이동 중 | `.week05-grid--stale` 1개 + 이전 카드 12개 유지, `aria-busy="true"` |
+| 필터 변경 중 | 그리드 0개 · "불러오는 중…" 1개 — 이전 결과가 남지 않음 |
+| 1→2→1 페이지 왕복 | 요청 `page=[2]`뿐, **1페이지 재요청 0회**(staleTime 30초 적중) |
+| 400 응답 | 요청 **1회**로 끝, 화면에 서버 메시지 + "다시 시도" 버튼 |
+| 500 응답 | 요청 **4회**(560ms·1588·3603·7616 — 1s·2s·4s 지수 백오프 후 중단) |
+
+- 마지막 두 줄이 `ApiError.status` 분기의 직접적 증거다. 같은 화면·같은 코드에서 상태 코드만 바꿨을 때 재시도 횟수가 1회와 4회로 갈린다.
+
+
