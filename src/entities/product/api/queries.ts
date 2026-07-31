@@ -1,9 +1,11 @@
 import { queryOptions } from '@tanstack/react-query'
+import { ApiError } from '@/shared/api/apiError'
 import type { ProductListQuery } from './types'
 import { fetchProducts } from './api'
 
 const PRODUCT_LIST_STALE_TIME = 30 * 1000
 const GC_TIME = 5 * 60 * 1000
+const SERVER_ERROR_STATUS = 500
 
 // 목록: 조건(q·category·sort·page)을 key와 요청에 모두 반영. 조건별 캐시 분리.
 // staleTime 30초 — 목록은 잠깐 캐시된 값을 보여줘도 손해가 없다(최종 검증은 상세·결제).
@@ -27,5 +29,9 @@ export function productListQueryOptions(query: ProductListQuery) {
         previous.sort !== query.sort
       return filterChanged ? undefined : previousData
     },
+    // 5xx(서버 오류)만 route error.tsx 경계로 전파한다.
+    // 4xx(잘못된 조건)·빈 결과는 페이지의 isError 분기가 화면 안에서 처리한다.
+    throwOnError: (error) =>
+      error instanceof ApiError && error.status >= SERVER_ERROR_STATUS,
   })
 }
