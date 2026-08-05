@@ -1,15 +1,7 @@
-import { products } from './data'
-import { ProductCard } from './_components/ProductCard'
-import { ControlledDialogDemo } from './_components/ControlledDialogDemo'
-import styles from './page.module.css'
+import type { JSX } from 'react'
+import { ProductListPage } from '@/_pages/product-list'
 
-export default function ProductsPage() {
-  return (
-    <main className={styles.page}>
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
-      ))}
-      <ControlledDialogDemo />
-    </main>
-  )
+// 라우팅 진입점 — 조합은 _pages/product-list가 한다.
+export default function Page(): JSX.Element {
+  return <ProductListPage />
 }
