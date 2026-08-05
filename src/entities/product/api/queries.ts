@@ -11,7 +11,6 @@ const SERVER_ERROR_STATUS = 500
 // staleTime 30초 — 목록은 잠깐 캐시된 값을 보여줘도 손해가 없다(최종 검증은 상세·결제).
 // placeholderData: page만 바뀌면 직전 목록을 유지해 깜빡임을 막고, 필터가 바뀌면
 // undefined를 돌려 즉시 로딩을 보여준다(옛 결과가 새 조건 결과로 오인되지 않게).
-// throwOnError는 커밋 2(에러 경계 도입)에서 추가한다.
 export function productListQueryOptions(query: ProductListQuery) {
   return queryOptions({
     queryKey: ['products', query] as const,

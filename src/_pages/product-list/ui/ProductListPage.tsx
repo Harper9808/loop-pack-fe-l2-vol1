@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, type JSX } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { productListQueryOptions } from '@/entities/product/api/queries'
+import { productListQueryOptions } from '@/entities/product'
 import { getPageNumbers } from '@/shared/lib/getPageNumbers'
 import { ProductFilters } from './ProductFilters'
 import { ProductResults } from './ProductResults'
