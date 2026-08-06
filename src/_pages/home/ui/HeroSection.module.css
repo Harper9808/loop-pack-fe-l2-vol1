@@ -40,6 +40,39 @@
   letter-spacing: 0.12em;
 }
 
+/* fallback은 실제 문구가 들어갈 자리를 같은 높이로 예약한다.
+   eyebrow(13px) · h2(clamp 28~52px) · 설명 2줄과 같은 박스를 만든다. */
+.copySkeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.skeletonLine {
+  background: rgb(33 27 23 / 12%);
+  border-radius: 4px;
+}
+
+.skeletonEyebrow {
+  width: 30%;
+  height: 13px;
+}
+
+.skeletonTitle {
+  width: 85%;
+  height: clamp(28px, 4vw, 52px);
+  margin: 6px 0 10px;
+}
+
+.skeletonText {
+  width: 100%;
+  height: calc(1em * 1.6);
+}
+
+.skeletonTextShort {
+  width: 62%;
+  height: calc(1em * 1.6);
+}
+
 @media (max-width: 640px) {
   .hero {
     aspect-ratio: 4 / 5;
