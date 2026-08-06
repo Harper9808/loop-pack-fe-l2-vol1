@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { JSX } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { homeQueryOptions } from '../api/queries'
+import { HeroSection } from './HeroSection'
 import { ProductSection } from './ProductSection'
 
 export function HomePage(): JSX.Element {
@@ -35,13 +36,7 @@ export function HomePage(): JSX.Element {
   const { banner, categories, popularProducts, newProducts } = data
   return (
     <main className="week05-page">
-      <section
-        className="week05-hero"
-        style={{ backgroundImage: `url(${banner.image})` }}
-      >
-        <p>{banner.description}</p>
-        <h1>{banner.title}</h1>
-      </section>
+      <HeroSection title={banner.title} description={banner.description} />
 
       <section className="week05-section">
         <h2>카테고리</h2>
