@@ -2,20 +2,42 @@
 
 import { Suspense, useEffect, type JSX } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { productListQueryOptions } from '@/entities/product'
+import {
+  ProductGridFallback,
+  productListQueryOptions,
+} from '@/entities/product'
 import { getPageNumbers } from '@/shared/lib/getPageNumbers'
 import { ProductFilters } from './ProductFilters'
 import { ProductResults } from './ProductResults'
+import { describeQuery } from '../model/describeQuery'
 import { useProductListQuery } from '../model/useProductListQuery'
 
 const MIN_PAGE = 1
+// 서버 기본 pageSize와 같게 둔다 — fallback이 실제 결과와 다른 개수면 교체 때 자리가 움직인다.
+const PAGE_SIZE = 12
 
 // nuqs(useSearchParams 기반)를 쓰는 부분은 Suspense 경계로 감싼다 (정적 프리렌더 요구사항).
+// 바깥 셸(h1·설명·필터 자리)은 이 경계 밖이라 데이터를 기다리지 않는다.
 export function ProductListPage(): JSX.Element {
   return (
-    <Suspense fallback={<p className="commerce-status">불러오는 중…</p>}>
-      <ProductsContent />
-    </Suspense>
+    <main className="week05-page">
+      <header className="week05-section">
+        <h1>상품 목록</h1>
+        <p>카테고리와 정렬 조건으로 원하는 상품을 찾아보세요.</p>
+      </header>
+
+      <Suspense fallback={<ProductsContentFallback />}>
+        <ProductsContent />
+      </Suspense>
+    </main>
+  )
+}
+
+function ProductsContentFallback(): JSX.Element {
+  return (
+    <section className="week05-section" aria-label="상품 검색 결과">
+      <ProductGridFallback count={PAGE_SIZE} />
+    </section>
   )
 }
 
@@ -39,8 +61,8 @@ function ProductsContent(): JSX.Element {
   } = useQuery(productListQueryOptions(listQuery))
 
   // 반대쪽 끝: 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
-  // 그대로 두면 결과가 30개인데도 "검색 결과가 없습니다"로 보이고 페이지네이션까지
-  // 사라져 화면 안에 돌아갈 길이 없다. 존재하는 마지막 페이지로 URL을 고쳐 쓴다.
+  // 그대로 두면 결과가 30개인데도 "0개"로 보이고 페이지네이션까지 사라져 화면 안에
+  // 돌아갈 길이 없다. 존재하는 마지막 페이지로 URL을 고쳐 쓴다.
   const totalPages = data
     ? getPageNumbers(requestedPage, data.totalCount, data.pageSize).totalPages
     : null
@@ -48,8 +70,8 @@ function ProductsContent(): JSX.Element {
     totalPages !== null && requestedPage > totalPages ? totalPages : null
   const isPageOutOfRange = outOfRangePage !== null
 
-  // placeholderData(이전 목록 유지)가 range 보정 중 옛 page의 응답을 잠깐 그대로 보여준다.
-  // 그 응답은 products가 비었지만 totalCount > 0 — 진짜 빈 검색 결과(둘 다 0)와 다르다.
+  // range 보정 중에는 옛 page의 응답이 잠깐 그대로 보인다. 그 응답은 products가 비었지만
+  // totalCount > 0 — 진짜 빈 검색 결과(둘 다 0)와 다르다.
   const isCorrectingPage = data
     ? data.products.length === 0 && data.totalCount > 0
     : false
@@ -63,10 +85,28 @@ function ProductsContent(): JSX.Element {
     }
   }, [correctedPage, replacePage])
 
+  // 여섯 화면을 가르는 축은 둘뿐이다 — 보여줄 목록이 있는가, 지금 실패했는가.
+  //   목록 없음 + 로딩  → 실제 크기의 pending UI
+  //   목록 없음 + 실패  → 목록 대신 오류와 재시도
+  //   목록 있음 + 갱신  → 목록을 유지하고 갱신 중임을 표시(placeholderData·aria-busy)
+  //   목록 있음 + 실패  → 목록을 유지한 채 인라인 오류와 재시도
+  //   성공 + 0건        → 현재 URL 조건과 0개임을 확정해 보여줌(ProductResults)
+  //   취소              → 상태가 바뀌지 않으므로 아무 오류도 나타나지 않는다
+  const hasList = data !== undefined
+  const retryButton = (
+    <button
+      type="button"
+      className="commerce-retry-button"
+      onClick={() => void refetch()}
+      disabled={isFetching}
+    >
+      {isFetching ? '재시도 중…' : '다시 시도'}
+    </button>
+  )
+
   return (
-    <main className="week05-page">
+    <>
       <section className="week05-section">
-        <h1>상품 목록</h1>
         <ProductFilters
           q={query.q}
           category={query.category}
@@ -78,31 +118,31 @@ function ProductsContent(): JSX.Element {
       </section>
 
       <section className="week05-section" aria-label="상품 검색 결과">
-        {/* 범위 밖 page는 곧 마지막 페이지로 고쳐 쓰이므로,
-            잘못된 "검색 결과가 없습니다" 대신 로딩을 유지한다. */}
-        {isPending || isPageOutOfRange || isCorrectingPage ? (
-          <p className="commerce-status">불러오는 중…</p>
-        ) : isError ? (
+        {isPending || (hasList && (isPageOutOfRange || isCorrectingPage)) ? (
+          <ProductGridFallback count={PAGE_SIZE} />
+        ) : !hasList ? (
           <p className="commerce-status">
-            {error.message}
+            {error?.message ?? '상품을 불러오지 못했습니다.'}
             <br />
-            <button
-              type="button"
-              className="commerce-retry-button"
-              onClick={() => void refetch()}
-              disabled={isFetching}
-            >
-              {isFetching ? '재시도 중…' : '다시 시도'}
-            </button>
+            {retryButton}
           </p>
         ) : (
-          <ProductResults
-            data={data}
-            onPageChange={setPage}
-            isPlaceholderData={isPlaceholderData}
-          />
+          <>
+            {isError && (
+              <p className="commerce-inline-error" role="status">
+                목록을 갱신하지 못했습니다. 아래는 직전 결과입니다.{' '}
+                {retryButton}
+              </p>
+            )}
+            <ProductResults
+              data={data}
+              onPageChange={setPage}
+              isPlaceholderData={isPlaceholderData}
+              conditionSummary={describeQuery(query)}
+            />
+          </>
         )}
       </section>
-    </main>
+    </>
   )
 }

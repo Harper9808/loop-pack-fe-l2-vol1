@@ -3,6 +3,7 @@ import type { ProductListQuery, ProductListResponse } from './types'
 
 export function fetchProducts(
   query: ProductListQuery,
+  signal?: AbortSignal,
 ): Promise<ProductListResponse> {
   // 기본값도 명시적으로 요청에 싣는다 (특히 sort=latest — 4주차 생략 동작에 기대지 않음).
   const params = new URLSearchParams({
@@ -14,5 +15,8 @@ export function fetchProducts(
     // 최적화 대상은 이 지연을 없애는 것이 아니라, 지연을 유지한 채 체감을 개선하는 것이다.
     scenario: 'slow',
   })
-  return fetchJson<ProductListResponse>(`/api/products?${params.toString()}`)
+  return fetchJson<ProductListResponse>(
+    `/api/products?${params.toString()}`,
+    signal,
+  )
 }
