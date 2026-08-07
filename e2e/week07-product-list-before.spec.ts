@@ -29,12 +29,18 @@ test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
 
     await page.goto('/products')
     // 응답 전에 무엇이 보이는가 — 이게 "최초 진입" 화면이다.
-    snapshots.push(await snapshot(page, 'API 응답 전', t0()))
+    const pending = await snapshot(page, 'API 응답 전', t0())
+    snapshots.push(pending)
 
     await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
-    snapshots.push(await snapshot(page, 'API 응답 후', t0()))
+    const settled = await snapshot(page, 'API 응답 후', t0())
+    snapshots.push(settled)
 
     await saveObservation(info, { calls, snapshots })
+
+    expect(pending.skeletonCardCount).toBe(12)
+    expect(pending.listVisible).toBe(false)
+    expect(settled.listVisible).toBe(true)
   })
 
   test('2. 기존 목록 갱신 — 필터(카테고리) 변경', async ({ page }, info) => {
@@ -50,12 +56,18 @@ test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
     await page.getByLabel('카테고리').selectOption('fashion')
     // 갱신 요청 직후 — 기존 목록이 남는가, 지워지는가?
     await page.waitForTimeout(200)
-    snapshots.push(await snapshot(page, '갱신 요청 직후', t0()))
+    const refreshing = await snapshot(page, '갱신 요청 직후', t0())
+    snapshots.push(refreshing)
 
     await page.waitForTimeout(SLOW_DELAY_MS)
-    snapshots.push(await snapshot(page, '갱신 완료 후', t0()))
+    const settled = await snapshot(page, '갱신 완료 후', t0())
+    snapshots.push(settled)
 
     await saveObservation(info, { calls, snapshots })
+
+    expect(refreshing.listVisible).toBe(true)
+    expect(refreshing.listAriaBusy).toBe('true')
+    expect(settled.listAriaBusy).toBe('false')
   })
 
   test('3. 기존 목록 갱신 — 페이지 이동', async ({ page }, info) => {
@@ -118,7 +130,18 @@ test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
       abortedDetail: aborted,
     })
 
-    // 최종 URL은 마지막 선택과 같아야 한다. 화면과의 일치는 기록으로 판단한다.
     expect(finalCategory).toBe('digital')
+    expect(aborted).toHaveLength(3)
+    expect(aborted.every((call) => call.failure === 'net::ERR_ABORTED')).toBe(
+      true,
+    )
+    expect(settled.listProductIds).toEqual([
+      'p24',
+      'p22',
+      'p30',
+      'p21',
+      'p25',
+      'p23',
+    ])
   })
 })

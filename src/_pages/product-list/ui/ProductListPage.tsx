@@ -1,10 +1,11 @@
 'use client'
 
 import { Suspense, useEffect, type JSX } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ProductGridFallback,
   productListQueryOptions,
+  type ProductListResponse,
 } from '@/entities/product'
 import { getPageNumbers } from '@/shared/lib/getPageNumbers'
 import { ProductFilters } from './ProductFilters'
@@ -42,6 +43,7 @@ function ProductsContentFallback(): JSX.Element {
 }
 
 function ProductsContent(): JSX.Element {
+  const queryClient = useQueryClient()
   const { query, setSearch, setCategory, setSort, setPage, replacePage } =
     useProductListQuery()
   // page < 1(0·음수)은 응답을 볼 것도 없이 잘못된 값이고, 서버도 400으로 거절한다.
@@ -59,6 +61,21 @@ function ProductsContent(): JSX.Element {
     isFetching,
     refetch,
   } = useQuery(productListQueryOptions(listQuery))
+
+  const latestSuccessfulData = isError
+    ? queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ['products'] })
+        .filter(
+          (cachedQuery) =>
+            cachedQuery.state.status === 'success' &&
+            cachedQuery.state.data !== undefined,
+        )
+        .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)[0]?.state
+        .data
+    : undefined
+  const visibleData =
+    data ?? (latestSuccessfulData as ProductListResponse | undefined)
 
   // 반대쪽 끝: 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
   // 그대로 두면 결과가 30개인데도 "0개"로 보이고 페이지네이션까지 사라져 화면 안에
@@ -92,7 +109,7 @@ function ProductsContent(): JSX.Element {
   //   목록 있음 + 실패  → 목록을 유지한 채 인라인 오류와 재시도
   //   성공 + 0건        → 현재 URL 조건과 0개임을 확정해 보여줌(ProductResults)
   //   취소              → 상태가 바뀌지 않으므로 아무 오류도 나타나지 않는다
-  const hasList = data !== undefined
+  const hasList = visibleData !== undefined
   const retryButton = (
     <button
       type="button"
@@ -135,7 +152,7 @@ function ProductsContent(): JSX.Element {
               </p>
             )}
             <ProductResults
-              data={data}
+              data={visibleData}
               onPageChange={setPage}
               isPlaceholderData={isPlaceholderData}
               conditionSummary={describeQuery(query)}

@@ -22,6 +22,8 @@ export function ProductResults({
   isPlaceholderData = false,
   conditionSummary,
 }: ProductResultsProps): JSX.Element {
+  const resultKey = data.products.map((product) => product.id).join(':')
+
   return (
     <>
       <p>총 {data.totalCount}개</p>
@@ -31,6 +33,7 @@ export function ProductResults({
         </p>
       ) : (
         <div
+          key={resultKey}
           className={
             isPlaceholderData ? 'week05-grid week05-grid--stale' : 'week05-grid'
           }

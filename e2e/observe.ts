@@ -27,6 +27,7 @@ export interface Snapshot {
   listVisible: boolean
   listAriaBusy: string | null
   listCardCount: number
+  listProductIds: string[]
   totalCountText: string | null
   emptyText: string | null
   /** 갱신 실패 배너 (목록을 유지한 채 뜨는 오류) */
@@ -96,6 +97,14 @@ export async function snapshot(
       listVisible: list !== undefined,
       listAriaBusy: list?.getAttribute('aria-busy') ?? null,
       listCardCount: list?.childElementCount ?? 0,
+      listProductIds: Array.from(list?.querySelectorAll('img') ?? []).flatMap(
+        (image) => {
+          const match = decodeURIComponent(
+            image.getAttribute('src') ?? '',
+          ).match(/\/images\/products\/(p\d+)\.jpg/)
+          return match?.[1] ? [match[1]] : []
+        },
+      ),
       totalCountText: total?.textContent?.trim() ?? null,
       emptyText:
         document.querySelector('.commerce-empty')?.textContent?.trim() ?? null,

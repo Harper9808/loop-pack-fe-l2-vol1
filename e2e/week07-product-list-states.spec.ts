@@ -9,12 +9,11 @@ import {
 // 2단계가 요구하는 여섯 화면 중, 전환 스펙(week07-product-list-before)이 다루지 않는
 // 나머지를 관측한다 — 성공+0건 · 최초 실패 · 갱신 실패.
 //
-// 실패는 앱 코드를 고치지 않고 page.route로 응답만 가로채 재현한다.
-// 4xx를 쓰는 이유: 5xx는 queryOptions의 throwOnError가 route error 경계로 보내
-// 페이지 안 화면이 아니라 error.tsx가 뜬다(그것도 의도된 분리다).
+// 실패는 page.route로 과제 API와 같은 500 응답을 재현한다.
 
 const SLOW_DELAY_MS = 1500
 const SETTLE_MS = 5000
+const ERROR_SETTLE_MS = 10000
 const REAL_GRID = '.week05-grid:not([aria-hidden="true"])'
 
 test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
@@ -30,8 +29,9 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
 
     // 어떤 상품 이름·브랜드에도 없는 검색어
-    await page.getByLabel('검색').fill('존재하지않는상품명zzz')
-    await page.getByLabel('검색').press('Enter')
+    const searchInput = page.getByRole('textbox', { name: '검색' })
+    await searchInput.fill('존재하지않는상품명zzz')
+    await searchInput.press('Enter')
     await page.waitForTimeout(SLOW_DELAY_MS + 800)
 
     const empty = await snapshot(page, '빈 결과 확정', t0())
@@ -58,14 +58,14 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
 
     await page.route('**/api/products**', (route) =>
       route.fulfill({
-        status: 400,
+        status: 500,
         contentType: 'application/json',
         body: JSON.stringify({ message: '요청 조건을 확인해주세요.' }),
       }),
     )
 
     await page.goto('/products')
-    await page.waitForTimeout(SETTLE_MS)
+    await page.waitForTimeout(ERROR_SETTLE_MS)
     const failed = await snapshot(page, '최초 실패', t0())
     snapshots.push(failed)
 
@@ -74,6 +74,7 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     // 보여줄 목록이 없으므로 목록 자리를 오류가 대신한다.
     expect(failed.statusText).not.toBeNull()
     expect(failed.listVisible).toBe(false)
+    await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible()
   })
 
   test('7. 갱신 실패 — 기존 목록을 유지한 채 알리는가', async ({
@@ -93,7 +94,7 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
         return
       }
       await route.fulfill({
-        status: 400,
+        status: 500,
         contentType: 'application/json',
         body: JSON.stringify({ message: '요청 조건을 확인해주세요.' }),
       })
@@ -104,7 +105,7 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     snapshots.push(await snapshot(page, '갱신 전 (목록 있음)', t0()))
 
     await page.getByLabel('카테고리').selectOption('fashion')
-    await page.waitForTimeout(SETTLE_MS)
+    await page.waitForTimeout(ERROR_SETTLE_MS)
     const failed = await snapshot(page, '갱신 실패 후', t0())
     snapshots.push(failed)
 
@@ -113,5 +114,6 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     // 목록은 남아 있고, 실패는 인라인으로 알린다.
     expect(failed.listVisible).toBe(true)
     expect(failed.inlineErrorVisible).toBe(true)
+    await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible()
   })
 })
