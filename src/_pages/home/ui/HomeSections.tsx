@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { connection } from 'next/server'
 import type { JSX } from 'react'
-import { fetchHome } from '../api/api'
+import { getServerQueryClient } from '@/shared/api/getServerQueryClient'
+import { homeQueryOptions } from '../api/queries'
 import { ProductSection } from './ProductSection'
 
 // 카테고리·인기·신상품은 모두 같은 홈 응답에서 나온다.
@@ -9,7 +10,9 @@ import { ProductSection } from './ProductSection'
 // Next의 fetch memoization이 중복 호출을 합친다(서버 호출 계수로 3단계에서 확인).
 export async function HomeSections(): Promise<JSX.Element> {
   await connection()
-  const { categories, popularProducts, newProducts } = await fetchHome()
+  const queryClient = getServerQueryClient()
+  const { categories, popularProducts, newProducts } =
+    await queryClient.fetchQuery(homeQueryOptions())
 
   return (
     <>
