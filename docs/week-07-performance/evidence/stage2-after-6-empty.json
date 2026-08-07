@@ -2,15 +2,15 @@
   "calls": [
     {
       "search": "?q=&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 87,
-      "endedAtMs": 1610,
+      "startedAtMs": 95,
+      "endedAtMs": 1602,
       "status": 200,
       "failure": null
     },
     {
       "search": "?q=%EC%A1%B4%EC%9E%AC%ED%95%98%EC%A7%80%EC%95%8A%EB%8A%94%EC%83%81%ED%92%88%EB%AA%85zzz&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 1967,
-      "endedAtMs": 3479,
+      "startedAtMs": 1986,
+      "endedAtMs": 3492,
       "status": 200,
       "failure": null
     }
@@ -18,7 +18,7 @@
   "snapshots": [
     {
       "label": "빈 결과 확정",
-      "atMs": 4283,
+      "atMs": 4300,
       "url": "http://localhost:3000/products?q=%EC%A1%B4%EC%9E%AC%ED%95%98%EC%A7%80%EC%95%8A%EB%8A%94%EC%83%81%ED%92%88%EB%AA%85zzz",
       "statusText": null,
       "skeletonVisible": false,

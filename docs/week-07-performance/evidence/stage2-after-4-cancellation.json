@@ -2,36 +2,36 @@
   "calls": [
     {
       "search": "?q=&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 92,
-      "endedAtMs": 1610,
+      "startedAtMs": 87,
+      "endedAtMs": 1601,
       "status": 200,
       "failure": null
     },
     {
       "search": "?q=&category=casual&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2006,
-      "endedAtMs": 2344,
+      "startedAtMs": 1968,
+      "endedAtMs": 2304,
       "status": null,
       "failure": "net::ERR_ABORTED"
     },
     {
       "search": "?q=&category=fashion&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2341,
-      "endedAtMs": 2684,
+      "startedAtMs": 2301,
+      "endedAtMs": 2647,
       "status": null,
       "failure": "net::ERR_ABORTED"
     },
     {
       "search": "?q=&category=goods&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2682,
-      "endedAtMs": 3013,
+      "startedAtMs": 2645,
+      "endedAtMs": 2979,
       "status": null,
       "failure": "net::ERR_ABORTED"
     },
     {
       "search": "?q=&category=digital&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 3009,
-      "endedAtMs": 4529,
+      "startedAtMs": 2976,
+      "endedAtMs": 4487,
       "status": 200,
       "failure": null
     }
@@ -39,7 +39,7 @@
   "snapshots": [
     {
       "label": "선택: casual",
-      "atMs": 2012,
+      "atMs": 1973,
       "url": "http://localhost:3000/products?category=casual",
       "statusText": null,
       "skeletonVisible": false,
@@ -67,7 +67,7 @@
     },
     {
       "label": "선택: fashion",
-      "atMs": 2345,
+      "atMs": 2304,
       "url": "http://localhost:3000/products?category=fashion",
       "statusText": null,
       "skeletonVisible": false,
@@ -95,7 +95,7 @@
     },
     {
       "label": "선택: goods",
-      "atMs": 2684,
+      "atMs": 2648,
       "url": "http://localhost:3000/products?category=goods",
       "statusText": null,
       "skeletonVisible": false,
@@ -123,7 +123,7 @@
     },
     {
       "label": "선택: digital",
-      "atMs": 3014,
+      "atMs": 2980,
       "url": "http://localhost:3000/products?category=digital",
       "statusText": null,
       "skeletonVisible": false,
@@ -151,7 +151,7 @@
     },
     {
       "label": "정착 후",
-      "atMs": 8351,
+      "atMs": 8314,
       "url": "http://localhost:3000/products?category=digital",
       "statusText": null,
       "skeletonVisible": false,
@@ -177,22 +177,22 @@
   "abortedDetail": [
     {
       "search": "?q=&category=casual&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2006,
-      "endedAtMs": 2344,
+      "startedAtMs": 1968,
+      "endedAtMs": 2304,
       "status": null,
       "failure": "net::ERR_ABORTED"
     },
     {
       "search": "?q=&category=fashion&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2341,
-      "endedAtMs": 2684,
+      "startedAtMs": 2301,
+      "endedAtMs": 2647,
       "status": null,
       "failure": "net::ERR_ABORTED"
     },
     {
       "search": "?q=&category=goods&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 2682,
-      "endedAtMs": 3013,
+      "startedAtMs": 2645,
+      "endedAtMs": 2979,
       "status": null,
       "failure": "net::ERR_ABORTED"
     }

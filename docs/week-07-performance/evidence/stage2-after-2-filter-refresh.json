@@ -2,15 +2,15 @@
   "calls": [
     {
       "search": "?q=&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 91,
-      "endedAtMs": 1609,
+      "startedAtMs": 94,
+      "endedAtMs": 1608,
       "status": 200,
       "failure": null
     },
     {
       "search": "?q=&category=fashion&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 1998,
-      "endedAtMs": 3511,
+      "startedAtMs": 1956,
+      "endedAtMs": 3467,
       "status": 200,
       "failure": null
     }
@@ -18,7 +18,7 @@
   "snapshots": [
     {
       "label": "갱신 전 (목록 있음)",
-      "atMs": 1980,
+      "atMs": 1940,
       "url": "http://localhost:3000/products",
       "statusText": null,
       "skeletonVisible": false,
@@ -46,7 +46,7 @@
     },
     {
       "label": "갱신 요청 직후",
-      "atMs": 2208,
+      "atMs": 2169,
       "url": "http://localhost:3000/products?category=fashion",
       "statusText": null,
       "skeletonVisible": false,
@@ -74,7 +74,7 @@
     },
     {
       "label": "갱신 완료 후",
-      "atMs": 3726,
+      "atMs": 3688,
       "url": "http://localhost:3000/products?category=fashion",
       "statusText": null,
       "skeletonVisible": false,

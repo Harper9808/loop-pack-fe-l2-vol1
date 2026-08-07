@@ -2,15 +2,15 @@
   "calls": [
     {
       "search": "?q=&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 90,
-      "endedAtMs": 1609,
+      "startedAtMs": 97,
+      "endedAtMs": 1612,
       "status": 200,
       "failure": null
     },
     {
       "search": "?q=&category=all&sort=latest&page=2&scenario=slow",
-      "startedAtMs": 1994,
-      "endedAtMs": 3511,
+      "startedAtMs": 1978,
+      "endedAtMs": 3486,
       "status": 200,
       "failure": null
     }
@@ -18,7 +18,7 @@
   "snapshots": [
     {
       "label": "이동 전 (1페이지)",
-      "atMs": 1971,
+      "atMs": 1943,
       "url": "http://localhost:3000/products",
       "statusText": null,
       "skeletonVisible": false,
@@ -46,7 +46,7 @@
     },
     {
       "label": "이동 요청 직후",
-      "atMs": 2226,
+      "atMs": 2201,
       "url": "http://localhost:3000/products?page=2",
       "statusText": null,
       "skeletonVisible": false,
@@ -74,7 +74,7 @@
     },
     {
       "label": "이동 완료 후",
-      "atMs": 3744,
+      "atMs": 3715,
       "url": "http://localhost:3000/products?page=2",
       "statusText": null,
       "skeletonVisible": false,

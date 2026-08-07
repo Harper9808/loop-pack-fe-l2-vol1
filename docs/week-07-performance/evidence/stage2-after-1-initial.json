@@ -2,8 +2,8 @@
   "calls": [
     {
       "search": "?q=&category=all&sort=latest&page=1&scenario=slow",
-      "startedAtMs": 103,
-      "endedAtMs": 1616,
+      "startedAtMs": 85,
+      "endedAtMs": 1598,
       "status": 200,
       "failure": null
     }
@@ -11,7 +11,7 @@
   "snapshots": [
     {
       "label": "API 응답 전",
-      "atMs": 101,
+      "atMs": 73,
       "url": "http://localhost:3000/products",
       "statusText": null,
       "skeletonVisible": true,
@@ -26,7 +26,7 @@
     },
     {
       "label": "API 응답 후",
-      "atMs": 2016,
+      "atMs": 1955,
       "url": "http://localhost:3000/products",
       "statusText": null,
       "skeletonVisible": false,
