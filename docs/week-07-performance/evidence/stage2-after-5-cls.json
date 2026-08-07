@@ -1,0 +1,22 @@
+{
+  "cls": 0.00004555502055603781,
+  "shifts": [
+    {
+      "value": 0.00004555502055603781,
+      "sources": [
+        {
+          "node": "unknown",
+          "text": "",
+          "previousX": 360,
+          "previousY": 355,
+          "previousWidth": 1200,
+          "previousHeight": 17,
+          "currentX": 360,
+          "currentY": 355,
+          "currentWidth": 1200,
+          "currentHeight": 17
+        }
+      ]
+    }
+  ]
+}
