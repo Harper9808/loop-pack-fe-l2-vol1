@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, type JSX } from 'react'
+import { Suspense, useEffect, useState, type JSX } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ProductGridFallback,
@@ -51,6 +51,7 @@ function ProductsContent(): JSX.Element {
   const isPageBelowMin = query.page < MIN_PAGE
   const listQuery = isPageBelowMin ? { ...query, page: MIN_PAGE } : query
   const requestedPage = listQuery.page
+  const [lastSuccessfulQuery, setLastSuccessfulQuery] = useState(listQuery)
 
   const {
     data,
@@ -62,20 +63,18 @@ function ProductsContent(): JSX.Element {
     refetch,
   } = useQuery(productListQueryOptions(listQuery))
 
-  const latestSuccessfulData = isError
-    ? queryClient
-        .getQueryCache()
-        .findAll({ queryKey: ['products'] })
-        .filter(
-          (cachedQuery) =>
-            cachedQuery.state.status === 'success' &&
-            cachedQuery.state.data !== undefined,
-        )
-        .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)[0]?.state
-        .data
+  const rememberDisplayedQuery = (): void => {
+    if (data !== undefined && !isError && !isPlaceholderData) {
+      setLastSuccessfulQuery(listQuery)
+    }
+  }
+
+  const previousData = isError
+    ? queryClient.getQueryData<ProductListResponse>(
+        productListQueryOptions(lastSuccessfulQuery).queryKey,
+      )
     : undefined
-  const visibleData =
-    data ?? (latestSuccessfulData as ProductListResponse | undefined)
+  const visibleData = data ?? previousData
 
   // 반대쪽 끝: 서버는 범위를 벗어난 page에도 200과 빈 목록을 준다(totalCount는 그대로).
   // 그대로 두면 결과가 30개인데도 "0개"로 보이고 페이지네이션까지 사라져 화면 안에
@@ -128,9 +127,18 @@ function ProductsContent(): JSX.Element {
           q={query.q}
           category={query.category}
           sort={query.sort}
-          onSearch={setSearch}
-          onCategoryChange={setCategory}
-          onSortChange={setSort}
+          onSearch={(q) => {
+            rememberDisplayedQuery()
+            setSearch(q)
+          }}
+          onCategoryChange={(category) => {
+            rememberDisplayedQuery()
+            setCategory(category)
+          }}
+          onSortChange={(sort) => {
+            rememberDisplayedQuery()
+            setSort(sort)
+          }}
         />
       </section>
 
@@ -153,7 +161,10 @@ function ProductsContent(): JSX.Element {
             )}
             <ProductResults
               data={visibleData}
-              onPageChange={setPage}
+              onPageChange={(page) => {
+                rememberDisplayedQuery()
+                setPage(page)
+              }}
               isPlaceholderData={isPlaceholderData}
               conditionSummary={describeQuery(query)}
             />

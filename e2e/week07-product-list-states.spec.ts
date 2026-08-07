@@ -14,6 +14,7 @@ import {
 const SLOW_DELAY_MS = 1500
 const SETTLE_MS = 5000
 const ERROR_SETTLE_MS = 10000
+const ERROR_DELAY_MS = 1500
 const REAL_GRID = '.week05-grid:not([aria-hidden="true"])'
 
 test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
@@ -56,15 +57,24 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     const calls = recordProductApiCalls(page, t0)
     const snapshots: Snapshot[] = []
 
-    await page.route('**/api/products**', (route) =>
-      route.fulfill({
+    let failureCount = 0
+    await page.route('**/api/products**', async (route) => {
+      failureCount += 1
+      if (failureCount === 1) {
+        await new Promise((resolve) => setTimeout(resolve, ERROR_DELAY_MS))
+      }
+      await route.fulfill({
         status: 500,
         contentType: 'application/json',
         body: JSON.stringify({ message: '요청 조건을 확인해주세요.' }),
-      }),
-    )
+      })
+    })
 
     await page.goto('/products')
+    await page.waitForTimeout(200)
+    const pending = await snapshot(page, '최초 실패 응답 전', t0())
+    snapshots.push(pending)
+    expect(pending.skeletonCardCount).toBe(12)
     await page.waitForTimeout(ERROR_SETTLE_MS)
     const failed = await snapshot(page, '최초 실패', t0())
     snapshots.push(failed)
@@ -85,13 +95,29 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     const calls = recordProductApiCalls(page, t0)
     const snapshots: Snapshot[] = []
 
-    // 첫 조회는 정상으로 통과시키고, 그다음 갱신부터 실패시킨다.
-    let servedOnce = false
+    await page.goto('/products')
+    await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
+    const initial = await snapshot(page, '전체 목록', t0())
+    snapshots.push(initial)
+
+    await page.getByLabel('카테고리').selectOption('digital')
+    await expect(page.locator(REAL_GRID)).toHaveAttribute(
+      'aria-busy',
+      'false',
+      {
+        timeout: SETTLE_MS,
+      },
+    )
+    await page.getByLabel('카테고리').selectOption('all')
+    await expect(page.locator(REAL_GRID)).toHaveAttribute('aria-busy', 'false')
+    const beforeFailure = await snapshot(page, '실패 직전 캐시 목록', t0())
+    snapshots.push(beforeFailure)
+
+    let failureCount = 0
     await page.route('**/api/products**', async (route) => {
-      if (!servedOnce) {
-        servedOnce = true
-        await route.continue()
-        return
+      failureCount += 1
+      if (failureCount === 1) {
+        await new Promise((resolve) => setTimeout(resolve, ERROR_DELAY_MS))
       }
       await route.fulfill({
         status: 500,
@@ -100,11 +126,10 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
       })
     })
 
-    await page.goto('/products')
-    await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
-    snapshots.push(await snapshot(page, '갱신 전 (목록 있음)', t0()))
-
     await page.getByLabel('카테고리').selectOption('fashion')
+    await page.waitForTimeout(200)
+    const refreshing = await snapshot(page, '갱신 실패 응답 전', t0())
+    snapshots.push(refreshing)
     await page.waitForTimeout(ERROR_SETTLE_MS)
     const failed = await snapshot(page, '갱신 실패 후', t0())
     snapshots.push(failed)
@@ -114,6 +139,11 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     // 목록은 남아 있고, 실패는 인라인으로 알린다.
     expect(failed.listVisible).toBe(true)
     expect(failed.inlineErrorVisible).toBe(true)
+    expect(beforeFailure.listProductIds).toEqual(initial.listProductIds)
+    expect(refreshing.listProductIds).toEqual(beforeFailure.listProductIds)
+    expect(refreshing.listAriaBusy).toBe('true')
+    expect(failed.listProductIds).toEqual(beforeFailure.listProductIds)
+    expect(failed.listAriaBusy).toBe('false')
     await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible()
   })
 })
