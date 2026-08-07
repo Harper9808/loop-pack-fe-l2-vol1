@@ -19,6 +19,7 @@ export function HeroSection({ children }: HeroSectionProps): JSX.Element {
         alt=""
         fill
         sizes="100vw"
+        loading="eager"
       />
       <div className={styles.copy}>{children}</div>
     </section>
