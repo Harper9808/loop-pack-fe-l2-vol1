@@ -65,20 +65,7 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     const calls = recordProductApiCalls(page, t0)
     const snapshots: Snapshot[] = []
 
-    let failureCount = 0
-    await page.route('**/api/products**', async (route) => {
-      failureCount += 1
-      if (failureCount === 1) {
-        await new Promise((resolve) => setTimeout(resolve, ERROR_DELAY_MS))
-      }
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: '요청 조건을 확인해주세요.' }),
-      })
-    })
-
-    await page.goto('/products')
+    await page.goto('/products?scenario=error')
     await page.waitForTimeout(200)
     const pending = await snapshot(page, '최초 실패 응답 전', t0())
     snapshots.push(pending)
@@ -172,7 +159,9 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
       }),
     )
 
-    await page.goto('/products')
+    // 서버 prefetch 결과가 hydration되는 정상 경로에서는 브라우저 route가
+    // 첫 결과를 바꿀 수 없으므로, 서버 prefetch를 실패시킨 뒤 client 응답을 검증한다.
+    await page.goto('/products?scenario=error')
 
     await expect(
       page.getByText('상품 목록을 불러오는 중 문제가 발생했습니다.'),

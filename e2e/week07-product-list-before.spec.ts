@@ -132,7 +132,15 @@ test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
     const calls = recordProductApiCalls(page, t0)
     const snapshots: Snapshot[] = []
 
-    await page.goto('/products')
+    // 서버 prefetch는 실패시켜 hydration data가 없는 최초 상태를 만들고,
+    // 브라우저의 첫 요청만 slow 성공 응답으로 전환한다.
+    await page.route('**/api/products**', async (route) => {
+      const url = new URL(route.request().url())
+      url.searchParams.set('scenario', 'slow')
+      await route.continue({ url: url.toString() })
+    })
+
+    await page.goto('/products?scenario=error')
     // 응답 전에 무엇이 보이는가 — 이게 "최초 진입" 화면이다.
     const pending = await snapshot(page, 'API 응답 전', t0())
     snapshots.push(pending)
