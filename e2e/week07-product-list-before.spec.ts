@@ -20,7 +20,112 @@ const SETTLE_MS = 5000
 // 스켈레톤도 .week05-grid를 쓰므로 실제 결과만 고른다.
 const REAL_GRID = '.week05-grid:not([aria-hidden="true"])'
 
+const conditionCases = [
+  {
+    name: '검색',
+    parameter: 'q',
+    value: 'FRAME',
+    expectedIds: ['p24'],
+  },
+  {
+    name: '카테고리',
+    parameter: 'category',
+    value: 'fashion',
+    expectedIds: ['p6', 'p27', 'p7', 'p9', 'p8', 'p10'],
+  },
+  {
+    name: '정렬',
+    parameter: 'sort',
+    value: 'price-asc',
+    expectedIds: [
+      'p29',
+      'p30',
+      'p25',
+      'p21',
+      'p24',
+      'p15',
+      'p3',
+      'p22',
+      'p2',
+      'p23',
+      'p17',
+      'p20',
+    ],
+  },
+  {
+    name: '페이지',
+    parameter: 'page',
+    value: '2',
+    expectedIds: [
+      'p30',
+      'p7',
+      'p16',
+      'p12',
+      'p9',
+      'p15',
+      'p8',
+      'p13',
+      'p4',
+      'p18',
+      'p21',
+      'p5',
+    ],
+  },
+] as const
+
 test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
+  for (const conditionCase of conditionCases) {
+    test(`${conditionCase.name} 조건은 URL·GET·최종 결과가 일치한다`, async ({
+      page,
+    }) => {
+      const start = Date.now()
+      const calls = recordProductApiCalls(page, () => Date.now() - start)
+
+      await page.goto('/products')
+      await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
+      const before = await snapshot(page, '조건 변경 전', Date.now() - start)
+
+      if (conditionCase.parameter === 'q') {
+        const searchInput = page.getByRole('textbox', { name: '검색' })
+        await searchInput.fill(conditionCase.value)
+        await searchInput.press('Enter')
+      } else if (conditionCase.parameter === 'category') {
+        await page.getByLabel('카테고리').selectOption(conditionCase.value)
+      } else if (conditionCase.parameter === 'sort') {
+        await page.getByLabel('정렬').selectOption(conditionCase.value)
+      } else {
+        await page
+          .locator('.week05-pagination')
+          .getByRole('button', { name: conditionCase.value, exact: true })
+          .click()
+      }
+
+      await page.waitForTimeout(200)
+      const refreshing = await snapshot(
+        page,
+        '조건 변경 응답 전',
+        Date.now() - start,
+      )
+      await expect(page.locator(REAL_GRID)).toHaveAttribute(
+        'aria-busy',
+        'false',
+        { timeout: SETTLE_MS },
+      )
+      const settled = await snapshot(page, '조건 변경 완료', Date.now() - start)
+      const finalCall = calls.at(-1)
+
+      expect(
+        new URL(page.url()).searchParams.get(conditionCase.parameter),
+      ).toBe(conditionCase.value)
+      expect(
+        new URLSearchParams(finalCall?.search).get(conditionCase.parameter),
+      ).toBe(conditionCase.value)
+      expect(refreshing.listProductIds).toEqual(before.listProductIds)
+      expect(refreshing.listAriaBusy).toBe('true')
+      expect(settled.listProductIds).toEqual(conditionCase.expectedIds)
+    })
+  }
+
   test('1. 최초 진입 — 보여줄 데이터가 없는 상태', async ({ page }, info) => {
     const start = Date.now()
     const t0 = (): number => Date.now() - start
@@ -132,8 +237,19 @@ test.describe('목록 화면 전환 관측 (scenario=slow)', () => {
 
     expect(finalCategory).toBe('digital')
     expect(aborted).toHaveLength(3)
-    expect(aborted.every((call) => call.failure === 'net::ERR_ABORTED')).toBe(
-      true,
+    expect(
+      aborted.map((call) => ({
+        category: new URLSearchParams(call.search).get('category'),
+        failure: call.failure,
+      })),
+    ).toEqual([
+      { category: 'casual', failure: 'net::ERR_ABORTED' },
+      { category: 'fashion', failure: 'net::ERR_ABORTED' },
+      { category: 'goods', failure: 'net::ERR_ABORTED' },
+    ])
+    expect(calls.at(-1)?.status).toBe(200)
+    expect(new URLSearchParams(calls.at(-1)?.search).get('category')).toBe(
+      'digital',
     )
     expect(settled.listProductIds).toEqual([
       'p24',

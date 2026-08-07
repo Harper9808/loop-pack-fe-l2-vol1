@@ -72,12 +72,26 @@ test('기존 목록을 더 짧은 결과로 갱신해도 CLS가 0.1을 넘지 �
   await page.goto('/products')
   await expect(page.locator(REAL_GRID)).toBeVisible({ timeout: SETTLE_MS })
 
+  const initialResult = await page.evaluate(() => {
+    const layoutShiftState = globalThis as typeof globalThis & {
+      __week07Cls: number
+      __week07Shifts: Array<unknown>
+    }
+    const result = {
+      cls: layoutShiftState.__week07Cls,
+      shifts: layoutShiftState.__week07Shifts,
+    }
+    layoutShiftState.__week07Cls = 0
+    layoutShiftState.__week07Shifts = []
+    return result
+  })
+
   await page.getByLabel('카테고리').selectOption('digital')
   await expect(page.locator(REAL_GRID)).toHaveAttribute('aria-busy', 'false', {
     timeout: SETTLE_MS,
   })
 
-  const result = await page.evaluate(() => {
+  const refreshResult = await page.evaluate(() => {
     const layoutShiftState = globalThis as typeof globalThis & {
       __week07Cls: number
       __week07Shifts: Array<unknown>
@@ -88,10 +102,19 @@ test('기존 목록을 더 짧은 결과로 갱신해도 CLS가 0.1을 넘지 �
     }
   })
 
-  await saveObservation(info, result)
+  await saveObservation(info, {
+    initialCls: initialResult.cls,
+    initialShifts: initialResult.shifts,
+    refreshCls: refreshResult.cls,
+    refreshShifts: refreshResult.shifts,
+  })
 
   expect(
-    result.cls,
-    JSON.stringify(result.shifts, null, 2),
+    initialResult.cls,
+    JSON.stringify(initialResult.shifts, null, 2),
+  ).toBeLessThanOrEqual(0.1)
+  expect(
+    refreshResult.cls,
+    JSON.stringify(refreshResult.shifts, null, 2),
   ).toBeLessThanOrEqual(0.1)
 })

@@ -46,7 +46,15 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
 
     // 오류가 아니라 "빈 결과"로 보여야 한다.
     expect(empty.emptyText).not.toBeNull()
+    expect(empty.emptyText).toContain('존재하지않는상품명zzz')
+    expect(empty.emptyText).toContain('0개')
     expect(empty.statusText).toBeNull()
+    expect(new URL(empty.url).searchParams.get('q')).toBe(
+      '존재하지않는상품명zzz',
+    )
+    expect(new URLSearchParams(calls.at(-1)?.search).get('q')).toBe(
+      '존재하지않는상품명zzz',
+    )
   })
 
   test('6. 최초 실패 — 목록 대신 이유와 재시도를 보여주는가', async ({
@@ -144,6 +152,31 @@ test.describe('목록 나머지 화면 관측 (scenario=slow)', () => {
     expect(refreshing.listAriaBusy).toBe('true')
     expect(failed.listProductIds).toEqual(beforeFailure.listProductIds)
     expect(failed.listAriaBusy).toBe('false')
+    await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible()
+  })
+
+  test('8. 예상치 못한 응답 형태는 상품 목록 Error Boundary가 처리한다', async ({
+    page,
+  }) => {
+    await page.route('**/api/products**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          products: null,
+          categories: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: 12,
+        }),
+      }),
+    )
+
+    await page.goto('/products')
+
+    await expect(
+      page.getByText('상품 목록을 불러오는 중 문제가 발생했습니다.'),
+    ).toBeVisible({ timeout: SETTLE_MS })
     await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible()
   })
 })
