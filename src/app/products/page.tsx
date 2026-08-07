@@ -6,6 +6,7 @@ import type { JSX } from 'react'
 import {
   buildProductListMetadata,
   loadProductListParamsAsync,
+  ProductListContent,
   ProductListPage,
 } from '@/_pages/product-list'
 import { productListQueryOptions } from '@/entities/product'
@@ -31,7 +32,15 @@ export async function generateMetadata({
 }
 
 // 라우팅 진입점 — 조합은 _pages/product-list가 한다.
-export default async function Page({
+export default function Page({ searchParams }: ProductsPageProps): JSX.Element {
+  return (
+    <ProductListPage>
+      <PrefetchedProductList searchParams={searchParams} />
+    </ProductListPage>
+  )
+}
+
+async function PrefetchedProductList({
   searchParams,
 }: ProductsPageProps): Promise<JSX.Element> {
   await connection()
@@ -41,7 +50,7 @@ export default async function Page({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <ProductListPage />
+      <ProductListContent />
     </HydrationBoundary>
   )
 }

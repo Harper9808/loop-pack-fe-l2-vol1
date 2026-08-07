@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, type JSX } from 'react'
+import { Suspense, useEffect, useState, type JSX, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ProductGridFallback,
@@ -19,7 +19,13 @@ const PAGE_SIZE = 12
 
 // nuqs(useSearchParams 기반)를 쓰는 부분은 Suspense 경계로 감싼다 (정적 프리렌더 요구사항).
 // 바깥 셸(h1·설명·필터 자리)은 이 경계 밖이라 데이터를 기다리지 않는다.
-export function ProductListPage(): JSX.Element {
+interface ProductListPageProps {
+  children?: ReactNode
+}
+
+export function ProductListPage({
+  children,
+}: ProductListPageProps): JSX.Element {
   return (
     <main className="week05-page">
       <header className="week05-section">
@@ -28,7 +34,7 @@ export function ProductListPage(): JSX.Element {
       </header>
 
       <Suspense fallback={<ProductsContentFallback />}>
-        <ProductsContent />
+        {children ?? <ProductListContent />}
       </Suspense>
     </main>
   )
@@ -42,7 +48,7 @@ function ProductsContentFallback(): JSX.Element {
   )
 }
 
-function ProductsContent(): JSX.Element {
+export function ProductListContent(): JSX.Element {
   const queryClient = useQueryClient()
   const { query, setSearch, setCategory, setSort, setPage, replacePage } =
     useProductListQuery()
