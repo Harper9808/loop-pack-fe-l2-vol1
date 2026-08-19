@@ -131,6 +131,6 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 | 통합 | 갱신 실패 인라인 오류 렌더 조건 제거 | 직전 상품은 남았지만 `목록을 갱신하지 못했습니다` 문구를 찾지 못해 실패 | HTTP 실패와 사용자 UI 연결을 식별함 |
 | E2E | nuqs history 기본값을 `push`에서 `replace`로 변경 | `goBack()` 뒤 `fashion` 필터 combobox를 찾지 못해 실패 | 실제 브라우저 history 계약 파손을 식별함 |
 | E2E 보강 | API의 카테고리 필터를 제거하고 `price-asc`를 내림차순으로 변경 | 11번의 총 개수·정렬 결과와 13번의 카테고리별 첫 상품 단언이 각각 실패 | URL 컨트롤만 복원되고 실제 목록이 잘못된 결함을 식별함 |
-| HTTP 경계 보강 | `fetchProducts`에서 `fetchJson`으로 넘기는 signal 제거 | MSW handler의 `request.signal.aborted`가 `false`로 남아 실패 | 브라우저 취소 신호가 실제 Request까지 전달되지 않는 지점을 식별함 |
+| HTTP 경계 보강 | `productListQueryOptions`의 queryFn에서 `fetchProducts`로 넘기는 signal 제거 | MSW handler의 `request.signal.aborted`가 `false`로 남아 실패 | TanStack Query의 취소 신호가 실제 Request까지 전달되지 않는 지점을 식별함 |
 
-세 실험 모두 테스트 코드에는 손대지 않았고, 실패 확인 직후 제품 코드를 원래대로 복구했다.
+모든 결함 주입은 테스트 코드에는 손대지 않은 상태에서 수행했고, 실패 확인 직후 제품 코드를 원래대로 복구했다.

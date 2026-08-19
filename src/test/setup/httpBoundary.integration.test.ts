@@ -2,6 +2,7 @@ import '@/test/setup/msw'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { fetchProducts } from '@/entities/product/api/api'
+import { productListQueryOptions } from '@/entities/product/api/queries'
 import { defaultProductListResponse } from '@/test/fixtures/products'
 import { server } from '@/test/mocks/server'
 
@@ -67,7 +68,9 @@ describe('jsdom HTTP 경계', () => {
     )
     const controller = new AbortController()
 
-    const request = fetchProducts({}, controller.signal)
+    const request = productListQueryOptions({}).queryFn?.({
+      signal: controller.signal,
+    } as never)
     await handlerStarted
     controller.abort()
 
