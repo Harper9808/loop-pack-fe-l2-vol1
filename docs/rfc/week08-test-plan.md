@@ -29,7 +29,7 @@
 
 - 과제 문서에는 기존 테스트가 5개라고 적혀 있지만 현재 브랜치에는 Vitest 파일 11개, 테스트 53개가 있으며 모두 통과한다. 이후에는 실제 저장소의 11개를 회귀 기준선으로 삼고, 문서와의 차이를 숨기지 않는다.
 - Node 22.12.0과 pnpm 10.15.1에서 현재 `pnpm check`의 Vitest, lint, typecheck, production build가 통과했다.
-- 환경 비교 당시 동일한 15개 파일·69개 테스트를 분리 환경과 전체 jsdom 환경에서 각 6회 실행했다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 중앙값을 비교했다. 분리 구성은 전체 Duration 3.91초, 누적 environment 4.35초였고, 전체 jsdom은 각각 7.62초와 54.68초였다. 전체 Duration은 약 1.95배였으며 environment는 병렬 파일별 누적값이므로 실제 경과 시간으로 해석하지 않는다. 경계 시나리오 보강 후 현재 Vitest 결과는 15개 파일·70개 테스트다.
+- 환경 비교 당시 동일한 15개 파일·69개 테스트를 분리 환경과 전체 jsdom 환경에서 각 6회 실행했다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 중앙값을 비교했다. 분리 구성은 전체 Duration 3.91초, 누적 environment 4.35초였고, 전체 jsdom은 각각 7.62초와 54.68초였다. 전체 Duration은 약 1.95배였으며 environment는 병렬 파일별 누적값이므로 실제 경과 시간으로 해석하지 않는다. 경계 및 HTTP 계약 보강 후 현재 Vitest 결과는 15개 파일·72개 테스트다.
 - `week08-product-list.spec.ts`에는 E2E 방법론 4개 항목을 5개 테스트로 구현했다. `pnpm test:e2e`가 먼저 production build를 만든 뒤 3108 포트의 서버에서 실행되며, 서버 컴포넌트의 내부 fetch도 같은 origin을 사용하도록 Playwright web server에 `APP_ORIGIN`을 전달한다.
 - 중첩 worktree 때문에 Next.js가 상위 lockfile을 workspace root로 추론한다는 경고가 있다. 사용자 선택으로 유지한 작업 구조이며, 이 과제만을 위해 제품 설정을 변경해 경고를 숨기지 않는다.
 
@@ -123,6 +123,7 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 - 최초 오류에서 다시 시도할 때 오류 영역이 사라지고 스켈레톤으로 바뀌는 결함을 테스트가 발견했다. 재시도 중 오류 영역과 비활성 버튼을 유지하도록 수정했다.
 - E2E 첫 실행에서 production 서버 포트 3108과 서버 내부 `APP_ORIGIN` 3000이 달라 홈 요청이 실패하는 문제를 발견했다. Playwright web server의 `APP_ORIGIN`을 3108로 맞춰 production 전체 흐름을 복구했다.
 - 적대적 리뷰 뒤 2번의 동일 기본 조건 key, 11번의 2페이지 필터 초기화와 재진입 목록 순서, 13번의 history별 목록 식별, 14번의 필터·검색·정렬·페이지 reload와 유효하지 않은 페이지 보정을 보강했다. E2E 4개 항목은 시나리오를 분리해 5개 테스트로 실행한다.
+- 두 번째 적대적 리뷰에서 fetch stub 제거 당시 전체 query parameter와 `AbortSignal` 전달 검증이 유실된 것을 발견했다. MSW가 받은 실제 URL과 Request signal을 확인하는 HTTP 경계 테스트로 두 계약을 복구했다.
 
 | 방법론 | 임시로 망가뜨린 곳 | 관찰한 실패 | 판정 |
 | --- | --- | --- | --- |
@@ -130,5 +131,6 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 | 통합 | 갱신 실패 인라인 오류 렌더 조건 제거 | 직전 상품은 남았지만 `목록을 갱신하지 못했습니다` 문구를 찾지 못해 실패 | HTTP 실패와 사용자 UI 연결을 식별함 |
 | E2E | nuqs history 기본값을 `push`에서 `replace`로 변경 | `goBack()` 뒤 `fashion` 필터 combobox를 찾지 못해 실패 | 실제 브라우저 history 계약 파손을 식별함 |
 | E2E 보강 | API의 카테고리 필터를 제거하고 `price-asc`를 내림차순으로 변경 | 11번의 총 개수·정렬 결과와 13번의 카테고리별 첫 상품 단언이 각각 실패 | URL 컨트롤만 복원되고 실제 목록이 잘못된 결함을 식별함 |
+| HTTP 경계 보강 | `fetchProducts`에서 `fetchJson`으로 넘기는 signal 제거 | MSW handler의 `request.signal.aborted`가 `false`로 남아 실패 | 브라우저 취소 신호가 실제 Request까지 전달되지 않는 지점을 식별함 |
 
 세 실험 모두 테스트 코드에는 손대지 않았고, 실패 확인 직후 제품 코드를 원래대로 복구했다.
