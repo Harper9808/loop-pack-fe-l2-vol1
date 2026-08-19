@@ -17,7 +17,7 @@
 - `*.integration.test.tsx`만 `jsdom` 프로젝트에서 실행한다. DOM이 필요 없는 기존 테스트에 DOM 환경 설정 비용을 부과하지 않기 위해서다.
 - RTL 통합 테스트는 `@testing-library/react`, `user-event`, `jest-dom`을 사용한다.
 - 네트워크는 제품 코드의 `fetch`를 바꾸지 않고 MSW `setupServer`가 HTTP 경계에서 가로챈다.
-- jsdom에서는 Node fetch가 `/api/products` 같은 상대 URL을 해석하지 못한다. MSW 서버를 시작한 뒤 현재 fetch를 보존하고, 문자열 상대 URL만 `window.location.origin`에 결합한 다음 그 fetch로 전달하는 테스트 환경 어댑터를 설치한다. 응답을 직접 만들거나 제품 HTTP 클라이언트를 대체하지 않는다.
+- jsdom의 Node fetch만 직접 호출하면 `/api/products` 같은 상대 URL을 해석하지 못하지만, MSW 2가 fetch보다 앞에서 요청을 가로채 현재 jsdom URL 기준의 핸들러로 정상 전달한다. 실제 `fetchProducts` → MSW 통합 테스트로 이를 확인했으므로 별도 fetch 어댑터나 제품 HTTP 클라이언트 대체는 추가하지 않는다.
 - 공통 MSW 핸들러에는 성공 응답만 둔다. 빈 결과, 오류, 지연은 해당 테스트에서 `server.use`로 덮어쓴다. 처리되지 않은 요청은 오류로 간주한다.
 - 기존 `queries.test.ts`의 `vi.stubGlobal('fetch', fetchMock)` 두 곳은 제거한다. 2번은 query key만 DOM·네트워크 없이 검증하고, 요청 URL과 응답 계약은 MSW 통합 테스트가 담당한다.
 - Zustand store는 테스트마다 초기 상태로 복원하고 `localStorage`도 비운다.
@@ -29,8 +29,8 @@
 
 - 과제 문서에는 기존 테스트가 5개라고 적혀 있지만 현재 브랜치에는 Vitest 파일 11개, 테스트 53개가 있으며 모두 통과한다. 이후에는 실제 저장소의 11개를 회귀 기준선으로 삼고, 문서와의 차이를 숨기지 않는다.
 - Node 22.12.0과 pnpm 10.15.1에서 현재 `pnpm check`의 Vitest, lint, typecheck, production build가 통과했다.
-- 아직 DOM 통합 테스트가 없어서 분리 환경과 전체 jsdom 환경의 설정 시간 비교는 의미가 없다. 첫 통합 테스트를 구현한 뒤 같은 테스트 집합과 같은 머신에서 각 구성을 6회 실행한다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 Vitest 전체 Duration과 environment 시간을 기록해 중앙값을 비교한다. 미세한 차이는 개선으로 표현하지 않는다.
-- 아직 `week08-*.spec.ts` E2E 파일이 없어 `test:e2e`는 실행 대상을 찾지 못한다. E2E 구현과 production 실행 검증을 마친 뒤에만 `pnpm check`에 연결한다.
+- 구현 후 동일한 15개 파일·69개 테스트를 분리 환경과 전체 jsdom 환경에서 각 6회 실행했다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 중앙값을 비교했다. 분리 구성은 전체 Duration 3.91초, 누적 environment 4.35초였고, 전체 jsdom은 각각 7.62초와 54.68초였다. 전체 Duration은 약 1.95배였으며 environment는 병렬 파일별 누적값이므로 실제 경과 시간으로 해석하지 않는다.
+- `week08-product-list.spec.ts`의 E2E 4개를 구현했고 `pnpm test:e2e`가 먼저 production build를 만든 뒤 3108 포트의 서버에서 실행된다. 서버 컴포넌트의 내부 fetch도 같은 origin을 사용하도록 Playwright web server에 `APP_ORIGIN`을 전달한다.
 - 중첩 worktree 때문에 Next.js가 상위 lockfile을 workspace root로 추론한다는 경고가 있다. 사용자 선택으로 유지한 작업 구조이며, 이 과제만을 위해 제품 설정을 변경해 경고를 숨기지 않는다.
 
 ## 15개 검증 항목
@@ -108,10 +108,25 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 
 ## 구현 순서와 완료 게이트
 
-1. 상대 URL 환경 어댑터가 MSW까지 요청을 전달하는 최소 통합 테스트를 먼저 실패시킨 뒤 어댑터를 구현한다.
+1. 실제 제품 `fetchProducts`의 상대 URL 요청이 MSW까지 전달되는 최소 통합 테스트로 HTTP 경계를 확인한다. MSW가 이미 이를 지원하므로 별도 어댑터는 추가하지 않는다.
 2. 기존 query factory 테스트에서 직접 fetch stub을 제거하고 2번의 query key 계약만 남긴다.
 3. 단위 2개와 통합 9개를 구현하고 각 테스트 파일의 독립 실행과 전체 Vitest 실행을 확인한다.
 4. 분리 환경과 전체 jsdom 비교용 임시 설정으로 6회씩 측정하고, 원본 설정에는 분리 환경만 남긴다.
 5. E2E 4개를 구현하고 깨끗한 build 조건에서 `pnpm test:e2e`를 확인한다.
 6. `pnpm check`에 E2E를 연결하고 전체 검증을 통과시킨다.
 7. 단위·통합·E2E에서 각각 하나 이상 제품 코드만 망가뜨리는 결함 주입을 수행하고 테스트의 실패 메시지를 기록한 뒤 제품 코드를 복구한다.
+
+## 구현 및 결함 주입 결과
+
+- 단위 2개 항목, RTL+MSW 통합 9개 항목, Playwright E2E 4개 항목을 계획한 방법론 그대로 구현했다. MSW HTTP 경계 자체를 확인하는 통합 smoke test 하나도 별도로 둔다.
+- 기존 query factory 테스트의 `vi.stubGlobal('fetch')` 두 곳을 제거했다. query key는 Node 단위 테스트가, 실제 요청과 응답은 MSW 통합 테스트가 담당한다.
+- 최초 오류에서 다시 시도할 때 오류 영역이 사라지고 스켈레톤으로 바뀌는 결함을 테스트가 발견했다. 재시도 중 오류 영역과 비활성 버튼을 유지하도록 수정했다.
+- E2E 첫 실행에서 production 서버 포트 3108과 서버 내부 `APP_ORIGIN` 3000이 달라 홈 요청이 실패하는 문제를 발견했다. Playwright web server의 `APP_ORIGIN`을 3108로 맞춰 production 전체 흐름을 복구했다.
+
+| 방법론 | 임시로 망가뜨린 곳 | 관찰한 실패 | 판정 |
+| --- | --- | --- | --- |
+| 단위 | `getPageNumbers`의 시작 범위를 `page - 2`에서 `page - 1`로 축소 | 중간·마지막 페이지 기대 배열에서 첫 번호가 빠졌다는 diff와 함께 2개 실패 | 계산 경계를 직접 식별함 |
+| 통합 | 갱신 실패 인라인 오류 렌더 조건 제거 | 직전 상품은 남았지만 `목록을 갱신하지 못했습니다` 문구를 찾지 못해 실패 | HTTP 실패와 사용자 UI 연결을 식별함 |
+| E2E | nuqs history 기본값을 `push`에서 `replace`로 변경 | `goBack()` 뒤 `fashion` 필터 combobox를 찾지 못해 실패 | 실제 브라우저 history 계약 파손을 식별함 |
+
+세 실험 모두 테스트 코드에는 손대지 않았고, 실패 확인 직후 제품 코드를 원래대로 복구했다.
