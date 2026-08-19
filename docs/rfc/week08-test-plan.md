@@ -123,7 +123,7 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 - 최초 오류에서 다시 시도할 때 오류 영역이 사라지고 스켈레톤으로 바뀌는 결함을 테스트가 발견했다. 재시도 중 오류 영역과 비활성 버튼을 유지하도록 수정했다.
 - E2E 첫 실행에서 production 서버 포트 3108과 서버 내부 `APP_ORIGIN` 3000이 달라 홈 요청이 실패하는 문제를 발견했다. Playwright web server의 `APP_ORIGIN`을 3108로 맞춰 production 전체 흐름을 복구했다.
 - 적대적 리뷰 뒤 2번의 동일 기본 조건 key, 11번의 2페이지 필터 초기화와 재진입 목록 순서, 13번의 history별 목록 식별, 14번의 필터·검색·정렬·페이지 reload와 유효하지 않은 페이지 보정을 보강했다. E2E 4개 항목은 시나리오를 분리해 5개 테스트로 실행한다.
-- 두 번째 적대적 리뷰에서 fetch stub 제거 당시 전체 query parameter와 `AbortSignal` 전달 검증이 유실된 것을 발견했다. MSW가 받은 실제 URL과 Request signal을 확인하는 HTTP 경계 테스트로 두 계약을 복구했다.
+- 두 번째 적대적 리뷰에서 fetch stub 제거 당시 전체 query parameter와 상품 목록 queryFn이 받은 `AbortSignal`의 전달 검증이 유실된 것을 발견했다. MSW가 받은 실제 URL과 Fetch Request의 signal을 확인하는 HTTP 경계 테스트로 두 계약을 복구했다.
 
 | 방법론 | 임시로 망가뜨린 곳 | 관찰한 실패 | 판정 |
 | --- | --- | --- | --- |
@@ -131,6 +131,6 @@ RTL adapter로 query string 직렬화와 초기 search params 복원은 검증�
 | 통합 | 갱신 실패 인라인 오류 렌더 조건 제거 | 직전 상품은 남았지만 `목록을 갱신하지 못했습니다` 문구를 찾지 못해 실패 | HTTP 실패와 사용자 UI 연결을 식별함 |
 | E2E | nuqs history 기본값을 `push`에서 `replace`로 변경 | `goBack()` 뒤 `fashion` 필터 combobox를 찾지 못해 실패 | 실제 브라우저 history 계약 파손을 식별함 |
 | E2E 보강 | API의 카테고리 필터를 제거하고 `price-asc`를 내림차순으로 변경 | 11번의 총 개수·정렬 결과와 13번의 카테고리별 첫 상품 단언이 각각 실패 | URL 컨트롤만 복원되고 실제 목록이 잘못된 결함을 식별함 |
-| HTTP 경계 보강 | `productListQueryOptions`의 queryFn에서 `fetchProducts`로 넘기는 signal 제거 | MSW handler의 `request.signal.aborted`가 `false`로 남아 실패 | TanStack Query의 취소 신호가 실제 Request까지 전달되지 않는 지점을 식별함 |
+| HTTP 경계 보강 | `productListQueryOptions`의 queryFn에서 `fetchProducts`로 넘기는 signal 제거 | MSW handler의 `request.signal.aborted`가 `false`로 남아 실패 | 상품 목록 queryFn이 받은 취소 신호가 실제 Fetch Request까지 전달되지 않는 지점을 식별함 |
 
 모든 결함 주입은 테스트 코드에는 손대지 않은 상태에서 수행했고, 실패 확인 직후 제품 코드를 원래대로 복구했다.
