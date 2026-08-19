@@ -29,8 +29,8 @@
 
 - 과제 문서에는 기존 테스트가 5개라고 적혀 있지만 현재 브랜치에는 Vitest 파일 11개, 테스트 53개가 있으며 모두 통과한다. 이후에는 실제 저장소의 11개를 회귀 기준선으로 삼고, 문서와의 차이를 숨기지 않는다.
 - Node 22.12.0과 pnpm 10.15.1에서 현재 `pnpm check`의 Vitest, lint, typecheck, production build가 통과했다.
-- 구현 후 동일한 15개 파일·69개 테스트를 분리 환경과 전체 jsdom 환경에서 각 6회 실행했다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 중앙값을 비교했다. 분리 구성은 전체 Duration 3.91초, 누적 environment 4.35초였고, 전체 jsdom은 각각 7.62초와 54.68초였다. 전체 Duration은 약 1.95배였으며 environment는 병렬 파일별 누적값이므로 실제 경과 시간으로 해석하지 않는다.
-- `week08-product-list.spec.ts`의 E2E 4개를 구현했고 `pnpm test:e2e`가 먼저 production build를 만든 뒤 3108 포트의 서버에서 실행된다. 서버 컴포넌트의 내부 fetch도 같은 origin을 사용하도록 Playwright web server에 `APP_ORIGIN`을 전달한다.
+- 환경 비교 당시 동일한 15개 파일·69개 테스트를 분리 환경과 전체 jsdom 환경에서 각 6회 실행했다. 첫 실행은 warm-up으로 제외하고 나머지 5회의 중앙값을 비교했다. 분리 구성은 전체 Duration 3.91초, 누적 environment 4.35초였고, 전체 jsdom은 각각 7.62초와 54.68초였다. 전체 Duration은 약 1.95배였으며 environment는 병렬 파일별 누적값이므로 실제 경과 시간으로 해석하지 않는다. 경계 시나리오 보강 후 현재 Vitest 결과는 15개 파일·70개 테스트다.
+- `week08-product-list.spec.ts`에는 E2E 방법론 4개 항목을 5개 테스트로 구현했다. `pnpm test:e2e`가 먼저 production build를 만든 뒤 3108 포트의 서버에서 실행되며, 서버 컴포넌트의 내부 fetch도 같은 origin을 사용하도록 Playwright web server에 `APP_ORIGIN`을 전달한다.
 - 중첩 worktree 때문에 Next.js가 상위 lockfile을 workspace root로 추론한다는 경고가 있다. 사용자 선택으로 유지한 작업 구조이며, 이 과제만을 위해 제품 설정을 변경해 경고를 숨기지 않는다.
 
 ## 15개 검증 항목
