@@ -28,4 +28,20 @@ describe('상품 목록 query key', () => {
 
     expect(firstPageKey).not.toEqual(secondPageKey)
   })
+
+  it('서로 다른 객체로 만든 같은 기본 조건은 동일한 캐시 key를 만든다', () => {
+    const defaults: ProductListQuery = {
+      q: '',
+      category: 'all',
+      sort: 'latest',
+      page: 1,
+      pageSize: 12,
+      scenario: null,
+    }
+
+    const firstKey = productListQueryOptions({ ...defaults }).queryKey
+    const secondKey = productListQueryOptions({ ...defaults }).queryKey
+
+    expect(firstKey).toEqual(secondKey)
+  })
 })

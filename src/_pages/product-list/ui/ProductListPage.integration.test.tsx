@@ -134,7 +134,10 @@ describe('상품 목록 상태', () => {
 
     await user.click(retryButton)
 
-    expect(screen.getByRole('button', { name: '재시도 중…' })).toBeDisabled()
+    const retryingButton = screen.getByRole('button', { name: '재시도 중…' })
+    expect(retryingButton).toBeDisabled()
+    await user.click(retryingButton)
+    expect(requestCount).toBe(2)
     expect(
       await screen.findByRole('heading', {
         name: defaultProductListResponse.products[0].name,
@@ -174,11 +177,10 @@ describe('상품 목록 조작', () => {
     expect(
       await screen.findByRole('heading', { name: testProducts[1].name }),
     ).toBeInTheDocument()
-    expect(
-      requestedUrls.some((url) =>
-        url.includes('category=fashion&sort=latest&page=1'),
-      ),
-    ).toBe(true)
+    const lastRequest = new URL(requestedUrls.at(-1) ?? '')
+    expect(lastRequest.searchParams.get('category')).toBe('fashion')
+    expect(lastRequest.searchParams.get('sort')).toBe('latest')
+    expect(lastRequest.searchParams.get('page')).toBe('1')
     expect(
       screen.queryByRole('heading', { name: testProducts[0].name }),
     ).not.toBeInTheDocument()
@@ -219,11 +221,10 @@ describe('상품 목록 조작', () => {
         .getAllByRole('heading', { level: 3 })
         .map((heading) => heading.textContent),
     ).toEqual(ascendingProducts.map((product) => product.name))
-    expect(
-      requestedUrls.some((url) =>
-        url.includes('sort=price-asc&page=1&pageSize=12'),
-      ),
-    ).toBe(true)
+    const lastRequest = new URL(requestedUrls.at(-1) ?? '')
+    expect(lastRequest.searchParams.get('sort')).toBe('price-asc')
+    expect(lastRequest.searchParams.get('page')).toBe('1')
+    expect(lastRequest.searchParams.get('pageSize')).toBe('12')
   })
 
   it('다음 페이지로 이동하면 새 목록과 마지막 페이지 상태를 표시한다', async () => {
