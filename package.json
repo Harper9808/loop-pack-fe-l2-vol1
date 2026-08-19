@@ -14,11 +14,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --config playwright.week08.config.ts",
+    "test:e2e": "pnpm build && playwright test --config playwright.week08.config.ts",
     "observe": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm test && pnpm lint && pnpm typecheck && pnpm build",
+    "check": "pnpm test && pnpm lint && pnpm typecheck && pnpm test:e2e",
     "prepare": "husky"
   },
   "dependencies": {

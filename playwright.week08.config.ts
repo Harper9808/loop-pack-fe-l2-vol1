@@ -21,6 +21,9 @@ export default defineConfig({
   webServer: {
     command: 'pnpm start --port 3108',
     url: BASE_URL,
+    env: {
+      APP_ORIGIN: BASE_URL,
+    },
     reuseExistingServer: false,
     timeout: SERVER_BOOT_TIMEOUT_MS,
   },
