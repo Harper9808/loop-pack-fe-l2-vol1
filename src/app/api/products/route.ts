@@ -75,9 +75,7 @@ export async function GET(
     )
   }
 
-  await waitForMockApi(
-    scenario === 'slow' ? SLOW_MOCK_DELAY_MS : DEFAULT_MOCK_DELAY_MS,
-  )
+  await waitForMockApi(scenario === "slow" ? 1_500 : 500);
 
   if (scenario === 'error') {
     return NextResponse.json(
